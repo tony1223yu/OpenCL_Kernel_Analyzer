@@ -19,6 +19,7 @@ typedef struct FunctionInvocation_node FunctionInvocation_node;
 typedef struct StructDescriptor StructDescriptor;
 typedef struct StructMember StructMember;
 typedef struct Expression_node_list Expression_node_list;
+typedef struct CompoundStatement CompoundStatement;
 
 typedef enum OPENCL_DATA_TYPE OPENCL_DATA_TYPE;
 typedef enum EXPRESSION_KIND EXPRESSION_KIND;
@@ -151,6 +152,7 @@ enum STATEMENT_KIND
     SELECTION_STMT,
     EXPRESSION_STMT,
     RETURN_STMT, /* with return expression */
+    COMPOUND_STMT,
 
     /* w/o stmt descriptor */
     EMPTY_GOTO_STMT,
@@ -233,9 +235,18 @@ struct Statement_node
         IterationStatement* iteration_stmt;
         SelectionStatement* selection_stmt;
         ExpressionStatement* expression_stmt;
+        CompoundStatement* compound_stmt;
         ReturnStatement* return_stmt;
     } stmt;
     Statement_node* next;
+};
+
+struct CompoundStatement
+{
+    Declaration_node* declaration_head;
+    Declaration_node* declaration_tail;
+    Statement_node* statement_head;
+    Statement_node* statement_tail;
 };
 
 struct ReturnStatement
