@@ -15,15 +15,21 @@ typedef struct IterationStatement IterationStatement;
 typedef struct SelectionStatement SelectionStatement;
 typedef struct Selection_node Selection_node;
 typedef struct Expression_node Expression_node;
-typedef struct ParameterValue_node ParameterValue_node;
+typedef struct FunctionInvocation_node FunctionInvocation_node;
 typedef struct StructDescriptor StructDescriptor;
 typedef struct StructMember StructMember;
+typedef struct Expression_node_list Expression_node_list;
 
 typedef enum OPENCL_DATA_TYPE OPENCL_DATA_TYPE;
 typedef enum EXPRESSION_KIND EXPRESSION_KIND;
 typedef enum STATEMENT_KIND STATEMENT_KIND;
 
-
+TypeDescriptor_node* CreateScalarTypeDescriptor(OPENCL_DATA_TYPE);
+Constant_node* CreateEmptyConstantNode(void);
+Expression_node* CreateDirectExpressionNode(void*, Expression_node*, Expression_node*, EXPRESSION_KIND);
+Expression_node* CreateNormalExpressionNode(EXPRESSION_KIND, Expression_node*, Expression_node*);
+FunctionInvocation_node* CreateFunctionInvocation_node(char*, Expression_node_list*);
+Expression_node_list* AppendExpressionNodeToList(Expression_node_list*, Expression_node*);ExpressionStatement* AddToExpressionStatement(ExpressionStatement*, Expression_node*);
 
 enum OPENCL_DATA_TYPE
 {
@@ -93,8 +99,10 @@ enum EXPRESSION_KIND
     MULTIPLICATION_OP,
     DIVISION_OP,
     MODULAR_OP,
-    INCREASE_OP,
-    DECREASE_OP,
+    POST_INCREASE_OP,
+    POST_DECREASE_OP,
+    PRE_INCREASE_OP,
+    PRE_DECREASE_OP,
     SHIFT_LEFT_OP,
     SHIFT_RIGHT_OP,
     LESS_OP,
@@ -113,8 +121,12 @@ enum EXPRESSION_KIND
     EXPRESSION_IDENTIFIER,
     EXPRESSION_CONSTANT,
     EXPRESSION_SUBSCRIPT,
-    EXPRESSION_PARAMETER,
+    EXPRESSION_FUNCTION,
+    EXPRESSION_MEMBER,
+    EXPRESSION_TYPECAST,
+    EXPRESSION_EXPRSTMT,
 
+    ASSIGNMENT_NONE,
     ASSIGNMENT_MUL,
     ASSIGNMENT_DIV,
     ASSIGNMENT_MOD,
@@ -271,13 +283,15 @@ struct Expression_node
     Expression_node* left_operand;
     Expression_node* right_operand;
 
-    /* when using direct_expr, it means that left_operand and right_operand are both NULL */
     union direct_expr
     {
         char* identifier;
         Expression_node* subscript;
-        ParameterValue_node* parameter;
+        FunctionInvocation_node* function;
         Constant_node* constant;
+        char* member;
+        TypeDescriptor_node* target_type;
+        ExpressionStatement* expr_stmt;
     } direct_expr;
 
     Expression_node* next;
@@ -285,7 +299,7 @@ struct Expression_node
 
 struct Constant_node
 {
-    TypeDescriptor_node constant_type;
+    TypeDescriptor_node* constant_type;
     union
     {
         int int_val;
@@ -298,10 +312,17 @@ struct Constant_node
     } value;
 };
 
-struct ParameterValue_node
+struct Expression_node_list
 {
-    Expression_node* parameter_head;
-    Expression_node* parameter_tail;
+    Expression_node* expression_head;
+    Expression_node* expression_tail;
+};
+
+struct FunctionInvocation_node
+{
+    char* name;
+    Expression_node* argument_head;
+    Expression_node* argument_tail;
 };
 
 #endif

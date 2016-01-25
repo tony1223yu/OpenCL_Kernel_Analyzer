@@ -8,11 +8,29 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 %{
 #include <stdio.h>
+#include "ASTDefinition.h"
 #include "y.tab.h"
 
 /* L?\"(\\.|[^\\"\n])*\"	{ printf("string : \"%s\"\n", yytext); count(); return (STRING_LITERAL); } */
 void count(void);
 void comment(void);
+
+TypeDescriptor_node* CreateScalarTypeDescriptor(OPENCL_DATA_TYPE type)
+{
+    TypeDescriptor_node* ret = (TypeDescriptor_node*) malloc(sizeof(TypeDescriptor_node));
+    ret->type = type;
+    ret->struct_name = NULL;
+    ret->arrayDescriptor = NULL;
+    return ret;
+}
+
+Constant_node* CreateEmptyConstantNode(void)
+{
+    Constant_node* ret = (Constant_node*) malloc(sizeof(Constant_node));
+    ret->constant_type = NONE_TYPE;
+    return ret;
+}
+
 %}
 
 %%
@@ -24,13 +42,6 @@ void comment(void);
 "__local"      { count(); return (ADDRESS_LOCAL); }
 "__constant"      { count(); return (ADDRESS_CONSTANT); }
 "__private"      { count(); return (ADDRESS_PRIVATE); }
-"get_global_id"     { count(); return (GLOBAL_ID_FUNC); }
-"get_global_size"   { count(); return (GLOBAL_SIZE_FUNC); }
-"get_local_id"      { count(); return (LOCAL_ID_FUNC); }
-"get_local_size"    { count(); return (LOCAL_SIZE_FUNC); }
-"get_work_dim"      { count(); return (WORK_DIM_FUNC); }
-"get_num_groups"      { count(); return (NUM_GROUPS_FUNC); }
-"get_group_id"      { count(); return (GROUP_ID_FUNC); }
 
 "#define"          { count(); return (DEFINE); }
 
@@ -122,17 +133,17 @@ void comment(void);
 
 
  /* TODO: seperate int/long and float/double */
-0[xX]{H}+{IS}?		{ count(); return (CONSTANT); }
-0[0-7]*{IS}?		{ count(); return (CONSTANT); }
-[1-9]{D}*{IS}?		{ count(); return (CONSTANT); }
-L?'(\\.|[^\\'\n])+'	{ count(); return (CONSTANT); }
+0[xX]{H}+{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDescriptor(INT_TYPE); yylval.const_node->value.int_val = atoi(yytext);  return (CONSTANT); }
+0[0-7]*{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDescriptor(INT_TYPE); yylval.const_node->value.int_val = atoi(yytext);  return (CONSTANT); }
+[1-9]{D}*{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDescriptor(INT_TYPE); yylval.const_node->value.int_val = atoi(yytext);  return (CONSTANT); }
+L?'(\\.|[^\\'\n])+'	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDescriptor(INT_TYPE); yylval.const_node->value.int_val = atoi(yytext);  return (CONSTANT); }
 
-{D}+{E}{FS}?		{ count(); return (CONSTANT); }
-{D}*"."{D}+{E}?{FS}?	{ count(); return (CONSTANT); }
-{D}+"."{D}*{E}?{FS}?	{ count(); return (CONSTANT); }
-0[xX]{H}+{P}{FS}?	{ count(); return (CONSTANT); }
-0[xX]{H}*"."{H}+{P}?{FS}?     { count(); return (CONSTANT); }
-0[xX]{H}+"."{H}*{P}?{FS}?     { count(); return (CONSTANT); }
+{D}+{E}{FS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDescriptor(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+{D}*"."{D}+{E}?{FS}?	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDescriptor(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+{D}+"."{D}*{E}?{FS}?	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDescriptor(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+0[xX]{H}+{P}{FS}?	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDescriptor(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+0[xX]{H}*"."{H}+{P}?{FS}?     { count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDescriptor(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+0[xX]{H}+"."{H}*{P}?{FS}?     { count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDescriptor(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
 
 
 L?\"([^"]|\\.)*\" { count(); return (STRING_LITERAL); }
