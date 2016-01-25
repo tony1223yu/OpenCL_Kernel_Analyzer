@@ -33,7 +33,7 @@ Expression_node_list* AppendExpressionNodeToList(Expression_node_list*, Expressi
 
 enum OPENCL_DATA_TYPE
 {
-    NONE_TYPE = 0,
+    NONE_TYPE = 0x0,
     STRUCT_TYPE,
     UNION_TYPE,
     BOOL_TYPE = 0x1000,
@@ -79,7 +79,7 @@ enum OPENCL_DATA_TYPE
     ULONG4_TYPE,
     ULONG8_TYPE,
     ULONG16_TYPE,
-    FLOAT_TYPE = 0x10000,
+    FLOAT_TYPE = 0x2000,
     FLOAT2_TYPE,
     FLOAT4_TYPE,
     FLOAT8_TYPE,
@@ -128,7 +128,7 @@ enum EXPRESSION_KIND
     EXPRESSION_TYPECAST,
     EXPRESSION_EXPRSTMT,
 
-    ASSIGNMENT_BASE = 0x3000,
+    ASSIGNMENT_BASE = 0x4000,
     ASSIGNMENT_NONE,
     ASSIGNMENT_MUL,
     ASSIGNMENT_DIV,
