@@ -28,8 +28,10 @@ typedef struct Parameter_node_list Parameter_node_list;
 typedef enum OPENCL_DATA_TYPE OPENCL_DATA_TYPE;
 typedef enum EXPRESSION_KIND EXPRESSION_KIND;
 typedef enum STATEMENT_KIND STATEMENT_KIND;
+typedef enum SELECTION_KIND SELECTION_KIND;
 typedef enum ARRAY_DESC_KIND ARRAY_DESC_KIND;
 typedef enum TYPE_DESC_KIND TYPE_DESC_KIND;
+typedef enum ITERATION_STMT_KIND ITERATION_STMT_KIND;
 
 TypeDesc_node* CreateScalarTypeDesc(OPENCL_DATA_TYPE);
 Constant_node* CreateEmptyConstantNode(void);
@@ -49,6 +51,7 @@ Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node*, ArrayDesc_
 void GetValueInExprNode(Expression_node*, OPENCL_DATA_TYPE, void*);
 Parameter_node_list* AppendParamNodeToList(Parameter_node_list*, Parameter_node*);
 Parameter_node* CreateParamNode(TypeDesc_node*, Declaration_desc_node*);
+IterationStatement* CreateIterStmt(ITERATION_STMT_KIND, void*, ExpressionStatement*, ExpressionStatement*, Statement_node*);
 
 enum OPENCL_DATA_TYPE
 {
@@ -173,6 +176,20 @@ enum TYPE_DESC_KIND
 {
     TYPE_WITH_PARAM = 0,
     TYPE_WITHOUT_PARAM
+};
+
+enum ITERATION_STMT_KIND
+{
+    FOR_LOOP_WITH_DECL = 0,
+    FOR_LOOP_WITHOUT_DECL,
+    WHILE_LOOP,
+    DO_WHILE_LOOP
+};
+
+enum SELECTION_KIND
+{
+    SELECTION_WITH_COND = 0,
+    SELECTION_WITHOUT_COND
 };
 
 enum STATEMENT_KIND
@@ -327,14 +344,16 @@ struct ExpressionStatement
 
 struct IterationStatement
 {
-    Declaration_node* init_declaration;
-    ExpressionStatement* init_expression_head;
-    ExpressionStatement* init_expression_tail;
+    ITERATION_STMT_KIND kind;
+
+    union
+    {
+        Declaration_node* declaration;
+        ExpressionStatement* expression;
+    } init;
 
     ExpressionStatement* terminated_expression;
-
     ExpressionStatement* step_expression;
-
     Statement_node* content_statement;
 };
 
@@ -346,6 +365,7 @@ struct SelectionStatement
 
 struct Selection_node
 {
+    SELECTION_KIND condition_kind;
     ExpressionStatement* condition_expression;
     Statement_node* content_statement;
 };

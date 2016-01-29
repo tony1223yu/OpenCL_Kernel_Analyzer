@@ -205,7 +205,7 @@ Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Para
 {
     Declaration_desc_node* ret;
     TypeDesc_node* currType;
-    
+
     if (decl_desc == NULL)
     {
         // Abstract declaration descriptor
@@ -215,7 +215,7 @@ Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Para
     {
         ret = decl_desc;
     }
-    
+
     currType = decl_desc->identifier_type;
     if (currType == NULL)
     {
@@ -263,7 +263,7 @@ Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node* decl_desc, 
 {
     Declaration_desc_node* ret;
     TypeDesc_node* currType;
-    
+
     if (decl_desc == NULL)
     {
         // Abstract declaration descriptor
@@ -273,7 +273,7 @@ Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node* decl_desc, 
     {
         ret = decl_desc;
     }
-        
+
     currType = ret->identifier_type;
     if (currType == NULL)
     {
@@ -306,7 +306,7 @@ Declaration_desc_node* AddArrayDescListToDeclDesc(Declaration_desc_node* decl_de
 {
     Declaration_desc_node* ret;
     TypeDesc_node* currType;
-    
+
     if (decl_desc == NULL)
     {
         // Abstract declaration descriptor
@@ -316,7 +316,7 @@ Declaration_desc_node* AddArrayDescListToDeclDesc(Declaration_desc_node* decl_de
     {
         ret = decl_desc;
     }
-        
+
     currType = ret->identifier_type;
     if (currType == NULL)
     {
@@ -394,6 +394,27 @@ Constant_node* CreateEmptyConstantNode(void)
 {
     Constant_node* ret = (Constant_node*) malloc(sizeof(Constant_node));
     ret->constant_type = NULL;
+    return ret;
+}
+
+
+IterationStatement* CreateIterStmt(ITERATION_STMT_KIND kind, void* init, ExpressionStatement* terminated, ExpressionStatement* step, Statement_node* content)
+{
+    IterationStatement* ret = (IterationStatement*) malloc(sizeof(IterationStatement));
+
+    if (kind == FOR_LOOP_WITH_DECL)
+    {
+        ret->init.declaration = (Declaration_node*) init;
+    }
+    else
+    {
+        ret->init.expression = (ExpressionStatement*) init;
+    }
+
+    ret->terminated_expression = terminated;
+    ret->step_expression = step;
+    ret->content_statement = content;
+
     return ret;
 }
 
@@ -1089,19 +1110,34 @@ expression_statement
 selection_statement
 	: IF '(' expression ')' statement
 	| IF '(' expression ')' statement ELSE statement
-	| SWITCH '(' expression ')' statement
+	| SWITCH '(' expression ')' statement {$$ = NULL;}
 	;
 
 iteration_statement
 	: WHILE '(' expression ')' statement
     {
-
+        $$ = CreateIterStmt(WHILE_LOOP, NULL, $3, NULL, $5);
     }
 	| DO statement WHILE '(' expression ')' ';'
+    {
+        $$ = CreateIterStmt(DO_WHILE_LOOP, NULL, $5, NULL, $2);
+    }
 	| FOR '(' expression_statement expression_statement ')' statement
-	| FOR '(' expression_statement expression_statement expression ')' statement
+	{
+        $$ = CreateIterStmt(FOR_LOOP_WITHOUT_DECL, $3, $4, NULL, $6);
+    }
+    | FOR '(' expression_statement expression_statement expression ')' statement
+    {
+        $$ = CreateIterStmt(FOR_LOOP_WITHOUT_DECL, $3, $4, $5, $7);
+    }
 	| FOR '(' declaration expression_statement ')' statement
+    {
+        $$ = CreateIterStmt(FOR_LOOP_WITH_DECL, $3, $4, NULL, $6);
+    }
 	| FOR '(' declaration expression_statement expression ')' statement
+    {
+        $$ = CreateIterStmt(FOR_LOOP_WITH_DECL, $3, $4, $5, $7);
+    }
 	;
 
 jump_statement
