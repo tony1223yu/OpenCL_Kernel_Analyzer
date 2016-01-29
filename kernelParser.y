@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "ASTDefinition.h"
 
-Expression_node* CreateDirectExpressionNode(void* ptr, Expression_node* left, Expression_node* right, EXPRESSION_KIND kind)
+Expression_node* CreateDirectExprNode(void* ptr, Expression_node* left, Expression_node* right, EXPRESSION_KIND kind)
 {
     Expression_node* ret = (Expression_node*) malloc(sizeof(Expression_node));
 
@@ -30,7 +30,7 @@ Expression_node* CreateDirectExpressionNode(void* ptr, Expression_node* left, Ex
             ret->direct_expr.function = (FunctionInvocation_node*)(ptr);
             break;
         case EXPRESSION_TYPECAST:
-            ret->direct_expr.target_type = (TypeDescriptor_node*)(ptr);
+            ret->direct_expr.target_type = (TypeDesc_node*)(ptr);
             break;
         case EXPRESSION_EXPRSTMT:
             ret->direct_expr.expr_stmt = (ExpressionStatement*)(ptr);
@@ -43,7 +43,7 @@ Expression_node* CreateDirectExpressionNode(void* ptr, Expression_node* left, Ex
     return ret;
 }
 
-Expression_node* CreateNormalExpressionNode(EXPRESSION_KIND kind, Expression_node* left, Expression_node* right)
+Expression_node* CreateNormalExprNode(EXPRESSION_KIND kind, Expression_node* left, Expression_node* right)
 {
     Expression_node* ret = (Expression_node*) malloc(sizeof(Expression_node));
 
@@ -51,6 +51,8 @@ Expression_node* CreateNormalExpressionNode(EXPRESSION_KIND kind, Expression_nod
     ret->left_operand = left;
     ret->right_operand = right;
     ret->next = NULL;
+
+    // TODO: constant folding
 
     /* set the content of the union space to 0 */
     ret->direct_expr.identifier = NULL;
@@ -65,7 +67,7 @@ FunctionInvocation_node* CreateFunctionInvocation_node(char* function_name, Expr
     return ret;
 }
 
-Expression_node_list* AppendExpressionNodeToList(Expression_node_list* origin_list, Expression_node* new_node)
+Expression_node_list* AppendExprNodeToList(Expression_node_list* origin_list, Expression_node* new_node)
 {
     if (origin_list == NULL)
     {
@@ -82,7 +84,7 @@ Expression_node_list* AppendExpressionNodeToList(Expression_node_list* origin_li
     }
 }
 
-ExpressionStatement* AddToExpressionStatement(ExpressionStatement* origin_stmt, Expression_node* new_node)
+ExpressionStatement* AddToExprStmt(ExpressionStatement* origin_stmt, Expression_node* new_node)
 {
     if (origin_stmt == NULL)
     {
@@ -99,12 +101,319 @@ ExpressionStatement* AddToExpressionStatement(ExpressionStatement* origin_stmt, 
     }
 }
 
+Statement_node* CreateStmtNode(void* ptr, STATEMENT_KIND kind)
+{
+    Statement_node* ret = (Statement_node*) malloc(sizeof(Statement_node));
+    ret->statement_kind = kind;
+    ret->next = NULL;
+
+    switch (kind)
+    {
+        case ITERATION_STMT:
+            ret->stmt.iteration_stmt = (IterationStatement*)(ptr);
+            break;
+        case SELECTION_STMT:
+            ret->stmt.selection_stmt = (SelectionStatement*)(ptr);
+            break;
+        case EXPRESSION_STMT:
+            ret->stmt.expression_stmt = (ExpressionStatement*)(ptr);
+            break;
+        case RETURN_STMT:
+            ret->stmt.return_stmt = (ReturnStatement*)(ptr);
+            break;
+        case COMPOUND_STMT:
+            ret->stmt.compound_stmt = (CompoundStatement*)(ptr);
+            break;
+    }
+    return ret;
+}
+
+Declaration_node* CreateDeclNode(TypeDesc_node* type, Declaration_desc_node_list* desc_list)
+{
+    Declaration_node* ret = (Declaration_node*) malloc(sizeof(Declaration_node));
+    ret->declaration_type = type;
+    ret->next = NULL;
+
+    if (desc_list == NULL)
+    {
+        ret->declaration_desc_head = NULL;
+        ret->declaration_desc_tail = NULL;
+    }
+    else
+    {
+        ret->declaration_desc_head = desc_list->declaration_desc_head;
+        ret->declaration_desc_tail = desc_list->declaration_desc_tail;
+        free (desc_list);
+    }
+    return ret;
+}
+
+Declaration_desc_node_list* AppendDeclDescNodeToList(Declaration_desc_node_list* origin_list, Declaration_desc_node* new_desc)
+{
+    if (origin_list == NULL)
+    {
+        Declaration_desc_node_list* ret = (Declaration_desc_node_list*) malloc(sizeof(Declaration_desc_node_list));
+        ret->declaration_desc_head = new_desc;
+        ret->declaration_desc_tail = new_desc;
+        return ret;
+    }
+    else
+    {
+        origin_list->declaration_desc_tail->next = new_desc;
+        origin_list->declaration_desc_tail = new_desc;
+        return origin_list;
+    }
+}
+
+Declaration_desc_node* CreateDeclDescNode(char* identifier_name)
+{
+    Declaration_desc_node* ret = (Declaration_desc_node*) malloc(sizeof(Declaration_desc_node));
+    ret->identifier_type = NULL;
+    ret->identifier_name = identifier_name;
+    ret->init_expression = NULL;
+    ret->next = NULL;
+    return ret;
+}
+
+ArrayDesc_node* CreateArrayDescNode(unsigned long size, ARRAY_DESC_KIND kind)
+{
+    ArrayDesc_node* ret = (ArrayDesc_node*) malloc(sizeof(ArrayDesc_node));
+    ret->size = size;
+    ret->next = NULL;
+    ret->desc_kind = kind;
+    return ret;
+}
+
+ArrayDesc_node_list* AppendArrayDescNodeToList(ArrayDesc_node_list* origin_list, ArrayDesc_node* new_node)
+{
+    if (origin_list == NULL)
+    {
+        ArrayDesc_node_list* ret = (ArrayDesc_node_list*) malloc(sizeof(ArrayDesc_node_list));
+        ret->array_desc_head = new_node;
+        ret->array_desc_tail = new_node;
+        return ret;
+    }
+    else
+    {
+        origin_list->array_desc_tail->next = new_node;
+        origin_list->array_desc_tail = new_node;
+        return origin_list;
+    }
+}
+
+Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Parameter_node_list* param_node_list)
+{
+    Declaration_desc_node* ret;
+    TypeDesc_node* currType;
+    
+    if (decl_desc == NULL)
+    {
+        // Abstract declaration descriptor
+        ret = CreateDeclDescNode(NULL);
+    }
+    else
+    {
+        ret = decl_desc;
+    }
+    
+    currType = decl_desc->identifier_type;
+    if (currType == NULL)
+    {
+        ret->identifier_type = (TypeDesc_node*) malloc(sizeof(TypeDesc_node));
+        ret->identifier_type->type = NONE_TYPE;
+        ret->identifier_type->kind = TYPE_WITH_PARAM;
+        ret->identifier_type->struct_name = NULL;
+        ret->identifier_type->array_desc_head = NULL;
+        ret->identifier_type->array_desc_tail = NULL;
+        if (param_node_list == NULL)
+        {
+            ret->identifier_type->parameter_head = NULL;
+            ret->identifier_type->parameter_tail = NULL;
+        }
+        else
+        {
+            ret->identifier_type->parameter_head = param_node_list->parameter_head;
+            ret->identifier_type->parameter_tail = param_node_list->parameter_tail;
+        }
+    }
+    else
+    {
+        if (currType->parameter_head == NULL)
+        {
+            if (param_node_list == NULL)
+            {
+                currType->parameter_head = NULL;
+                currType->parameter_tail = NULL;
+            }
+            else
+            {
+                currType->parameter_head = param_node_list->parameter_head;
+                currType->parameter_tail = param_node_list->parameter_tail;
+            }
+        }
+        else
+        {
+           fprintf(stderr, "[Error] Multiple parameter definition in %s\n", __func__);
+        }
+    }
+    return ret;
+}
+
+Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node* decl_desc, ArrayDesc_node* array_desc)
+{
+    Declaration_desc_node* ret;
+    TypeDesc_node* currType;
+    
+    if (decl_desc == NULL)
+    {
+        // Abstract declaration descriptor
+        ret = CreateDeclDescNode(NULL);
+    }
+    else
+    {
+        ret = decl_desc;
+    }
+        
+    currType = ret->identifier_type;
+    if (currType == NULL)
+    {
+        ret->identifier_type = (TypeDesc_node*) malloc(sizeof(TypeDesc_node));
+        ret->identifier_type->type = NONE_TYPE;
+        ret->identifier_type->kind = TYPE_WITHOUT_PARAM;
+        ret->identifier_type->struct_name = NULL;
+        ret->identifier_type->array_desc_head = array_desc;
+        ret->identifier_type->array_desc_tail = array_desc;
+        ret->identifier_type->parameter_head = NULL;
+        ret->identifier_type->parameter_tail = NULL;
+    }
+    else
+    {
+        if (currType->array_desc_tail == NULL)
+        {
+            currType->array_desc_head = array_desc;
+            currType->array_desc_tail = array_desc;
+        }
+        else
+        {
+            currType->array_desc_tail->next = array_desc;
+            currType->array_desc_tail = array_desc;
+        }
+    }
+    return ret;
+}
+
+Declaration_desc_node* AddArrayDescListToDeclDesc(Declaration_desc_node* decl_desc, ArrayDesc_node_list* array_desc_list)
+{
+    Declaration_desc_node* ret;
+    TypeDesc_node* currType;
+    
+    if (decl_desc == NULL)
+    {
+        // Abstract declaration descriptor
+        ret = CreateDeclDescNode(NULL);
+    }
+    else
+    {
+        ret = decl_desc;
+    }
+        
+    currType = ret->identifier_type;
+    if (currType == NULL)
+    {
+        ret->identifier_type = (TypeDesc_node*) malloc(sizeof(TypeDesc_node));
+        ret->identifier_type->type = NONE_TYPE;
+        ret->identifier_type->kind = TYPE_WITHOUT_PARAM;
+        ret->identifier_type->struct_name = NULL;
+        ret->identifier_type->array_desc_head = array_desc_list->array_desc_head;
+        ret->identifier_type->array_desc_tail = array_desc_list->array_desc_tail;
+        ret->identifier_type->parameter_head = NULL;
+        ret->identifier_type->parameter_tail = NULL;
+    }
+    else
+    {
+        if (currType->array_desc_tail == NULL)
+        {
+            currType->array_desc_head = array_desc_list->array_desc_head;
+            currType->array_desc_tail = array_desc_list->array_desc_tail;
+        }
+        else
+        {
+            currType->array_desc_tail->next = array_desc_list->array_desc_head;
+            currType->array_desc_tail = array_desc_list->array_desc_tail;
+        }
+    }
+    free (array_desc_list);
+    return ret;
+}
+
+// Note that the space of returnValue should be allocated by caller
+void GetValueInExprNode(Expression_node* expr_node, OPENCL_DATA_TYPE type, void* returnValue)
+{
+    // TODO
+}
+
+Parameter_node_list* AppendParamNodeToList(Parameter_node_list* origin_list, Parameter_node* new_node)
+{
+    if (origin_list == NULL)
+    {
+        Parameter_node_list* ret = (Parameter_node_list*) malloc(sizeof(Parameter_node_list));
+        ret->parameter_head = new_node;
+        ret->parameter_tail = new_node;
+        return ret;
+    }
+    else
+    {
+        origin_list->parameter_tail->next = new_node;
+        origin_list->parameter_tail = new_node;
+        return origin_list;
+    }
+}
+
+Parameter_node* CreateParamNode(TypeDesc_node* type, Declaration_desc_node* desc)
+{
+    Parameter_node* ret = (Parameter_node*) malloc(sizeof(Parameter_node));
+    ret->parameter_type = type;
+    ret->parameter_desc = desc;
+    return ret;
+}
+
+TypeDesc_node* CreateScalarTypeDesc(OPENCL_DATA_TYPE type)
+{
+    TypeDesc_node* ret = (TypeDesc_node*) malloc(sizeof(TypeDesc_node));
+    ret->type = type;
+    ret->struct_name = NULL;
+    ret->array_desc_head = NULL;
+    ret->array_desc_tail = NULL;
+    ret->kind = TYPE_WITHOUT_PARAM;
+    ret->parameter_head = NULL;
+    ret->parameter_tail = NULL;
+    return ret;
+}
+
+Constant_node* CreateEmptyConstantNode(void)
+{
+    Constant_node* ret = (Constant_node*) malloc(sizeof(Constant_node));
+    ret->constant_type = NULL;
+    return ret;
+}
+
 %}
 
 %union
 {
-    TypeDescriptor_node* type_node;
+    TypeDesc_node* type_desc_node;
+    ArrayDesc_node_list* array_desc_node_list;
+    Statement_node* stmt_node;
+    Parameter_node* param_node;
+    Parameter_node_list* param_node_list;
+    Declaration_node* decl_node;
+    Declaration_desc_node* decl_desc_node;
+    Declaration_desc_node_list* decl_desc_node_list;
     ExpressionStatement* expr_stmt;
+    IterationStatement* iter_stmt;
+    SelectionStatement* sel_stmt;
+    CompoundStatement* comp_stmt;
+    ReturnStatement* ret_stmt;
     Expression_node_list* expr_node_list;
     EXPRESSION_KIND expr_kind;
     Expression_node* expr_node;
@@ -115,7 +424,7 @@ ExpressionStatement* AddToExpressionStatement(ExpressionStatement* origin_stmt, 
 %token KERNEL ADDRESS_GLOBAL ADDRESS_LOCAL ADDRESS_PRIVATE ADDRESS_CONSTANT DEFINE
 
 %token TYPE_NAME
-%token OPENCL_TYPE
+%token <type_desc_node> OPENCL_TYPE
 %token <const_node> CONSTANT
 %token <ptr> IDENTIFIER
 %token STRING_LITERAL SIZEOF
@@ -130,15 +439,22 @@ ExpressionStatement* AddToExpressionStatement(ExpressionStatement* origin_stmt, 
 
 %token CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 
-%type <expr_node> primary_expression postfix_expression unary_expression cast_expression multiplicative_expression additive_expression shift_expression relational_expression equality_expression and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression conditional_expression assignment_expression
+%type <expr_node> primary_expression postfix_expression unary_expression cast_expression multiplicative_expression additive_expression shift_expression relational_expression equality_expression and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression conditional_expression assignment_expression initializer
 
-%type <expr_stmt> expression
-
+%type <expr_stmt> expression expression_statement
 %type <expr_node_list> argument_expression_list
-
-%type <type_node> type_name
-
+%type <type_desc_node> type_name declaration_specifiers type_specifier specifier_qualifier_list
+%type <array_desc_node_list> pointer
+%type <decl_node> declaration
+%type <decl_desc_node> declarator init_declarator direct_declarator abstract_declarator direct_abstract_declarator
+%type <decl_desc_node_list> init_declarator_list
+%type <stmt_node> statement jump_statement
+%type <comp_stmt> compound_statement
+%type <sel_stmt> selection_statement
+%type <iter_stmt> iteration_statement
 %type <expr_kind> assignment_operator
+%type <param_node_list> parameter_type_list parameter_list
+%type <param_node> parameter_declaration
 
 %start program_unit
 %%
@@ -148,64 +464,64 @@ program_unit
     ;
 
 primary_expression
-	: IDENTIFIER {$$ = CreateDirectExpressionNode($1, NULL, NULL, EXPRESSION_IDENTIFIER);}
-	| CONSTANT {$$ = CreateDirectExpressionNode($1, NULL, NULL, EXPRESSION_CONSTANT);}
+	: IDENTIFIER {$$ = CreateDirectExprNode($1, NULL, NULL, EXPRESSION_IDENTIFIER);}
+	| CONSTANT {$$ = CreateDirectExprNode($1, NULL, NULL, EXPRESSION_CONSTANT);}
 	| STRING_LITERAL {$$ = NULL;}
-	| '(' expression ')' {$$ = CreateDirectExpressionNode($2, NULL, NULL, EXPRESSION_EXPRSTMT);}
+	| '(' expression ')' {$$ = CreateDirectExprNode($2, NULL, NULL, EXPRESSION_EXPRSTMT);}
 	;
 
 /* function call here */
 postfix_expression
 	: primary_expression {$$ = $1;}
-	| postfix_expression '[' expression ']' {$$ = CreateDirectExpressionNode($3, $1, NULL, EXPRESSION_SUBSCRIPT);}
+	| postfix_expression '[' expression ']' {$$ = CreateDirectExprNode($3, $1, NULL, EXPRESSION_SUBSCRIPT);}
 	| postfix_expression '(' ')'
     {
         /* Assume that only IDENTIFIER can be used to invoke a function */
         FunctionInvocation_node* tmp = CreateFunctionInvocation_node($1->direct_expr.identifier, NULL);
-        $$ = CreateDirectExpressionNode(tmp, $1->left_operand, $1->right_operand, EXPRESSION_FUNCTION);
+        $$ = CreateDirectExprNode(tmp, $1->left_operand, $1->right_operand, EXPRESSION_FUNCTION);
         free ($1);
     }
 	| postfix_expression '(' argument_expression_list ')'
     {
         /* Assume that only IDENTIFIER can be used to invoke a function */
         FunctionInvocation_node* tmp = CreateFunctionInvocation_node($1->direct_expr.identifier, $3);
-        $$ = CreateDirectExpressionNode(tmp, $1->left_operand, $1->right_operand, EXPRESSION_FUNCTION);
+        $$ = CreateDirectExprNode(tmp, $1->left_operand, $1->right_operand, EXPRESSION_FUNCTION);
         free ($1);
     }
 	| postfix_expression '.' IDENTIFIER
 	{
-	    $$ = CreateDirectExpressionNode($3, $1, NULL, EXPRESSION_MEMBER);
+	    $$ = CreateDirectExprNode($3, $1, NULL, EXPRESSION_MEMBER);
     }
     | postfix_expression PTR_OP IDENTIFIER
 	{
-        $$ = CreateDirectExpressionNode($3, $1, NULL, EXPRESSION_MEMBER);
+        $$ = CreateDirectExprNode($3, $1, NULL, EXPRESSION_MEMBER);
     }
     | postfix_expression INC_OP
     {
-        $$ = CreateNormalExpressionNode(POST_INCREASE_OP, $1, NULL);
+        $$ = CreateNormalExprNode(POST_INCREASE_OP, $1, NULL);
     }
     | postfix_expression DEC_OP
     {
-        $$ = CreateNormalExpressionNode(POST_DECREASE_OP, $1, NULL);
+        $$ = CreateNormalExprNode(POST_DECREASE_OP, $1, NULL);
     }
 	| '(' type_name ')' '{' initializer_list '}' {$$ = NULL;}
 	| '(' type_name ')' '{' initializer_list ',' '}' {$$ = NULL;}
     ;
 
 argument_expression_list
-	: assignment_expression {$$ = AppendExpressionNodeToList(NULL, $1);}
-	| argument_expression_list ',' assignment_expression {$$ = AppendExpressionNodeToList($1, $3);}
+	: assignment_expression {$$ = AppendExprNodeToList(NULL, $1);}
+	| argument_expression_list ',' assignment_expression {$$ = AppendExprNodeToList($1, $3);}
 	;
 
 unary_expression
 	: postfix_expression {$$ = $1;}
 	| INC_OP unary_expression
     {
-        $$ = CreateNormalExpressionNode(PRE_INCREASE_OP, $2, NULL);
+        $$ = CreateNormalExprNode(PRE_INCREASE_OP, $2, NULL);
     }
 	| DEC_OP unary_expression
     {
-        $$ = CreateNormalExpressionNode(PRE_DECREASE_OP, $2, NULL);
+        $$ = CreateNormalExprNode(PRE_DECREASE_OP, $2, NULL);
     }
 	| unary_operator cast_expression
     {
@@ -228,7 +544,7 @@ cast_expression
 	: unary_expression {$$ = $1;}
     | '(' type_name ')' cast_expression
     {
-        $$ = CreateDirectExpressionNode($2, $4, NULL, EXPRESSION_TYPECAST);
+        $$ = CreateDirectExprNode($2, $4, NULL, EXPRESSION_TYPECAST);
     }
 	;
 
@@ -236,15 +552,15 @@ multiplicative_expression
 	: cast_expression {$$ = $1;}
 	| multiplicative_expression '*' cast_expression
     {
-        $$ = CreateNormalExpressionNode(MULTIPLICATION_OP, $1, $3);
+        $$ = CreateNormalExprNode(MULTIPLICATION_OP, $1, $3);
     }
 	| multiplicative_expression '/' cast_expression
     {
-        $$ = CreateNormalExpressionNode(DIVISION_OP, $1, $3);
+        $$ = CreateNormalExprNode(DIVISION_OP, $1, $3);
     }
 	| multiplicative_expression '%' cast_expression
     {
-        $$ = CreateNormalExpressionNode(MODULAR_OP, $1, $3);
+        $$ = CreateNormalExprNode(MODULAR_OP, $1, $3);
     }
 	;
 
@@ -252,11 +568,11 @@ additive_expression
 	: multiplicative_expression {$$ = $1;}
 	| additive_expression '+' multiplicative_expression
     {
-        $$ = CreateNormalExpressionNode(ADDITION_OP, $1, $3);
+        $$ = CreateNormalExprNode(ADDITION_OP, $1, $3);
     }
 	| additive_expression '-' multiplicative_expression
     {
-        $$ = CreateNormalExpressionNode(SUBTRACTION_OP, $1, $3);
+        $$ = CreateNormalExprNode(SUBTRACTION_OP, $1, $3);
     }
 	;
 
@@ -264,11 +580,11 @@ shift_expression
 	: additive_expression {$$ = $1;}
 	| shift_expression LEFT_OP additive_expression
     {
-        $$ = CreateNormalExpressionNode(SHIFT_LEFT_OP, $1, $3);
+        $$ = CreateNormalExprNode(SHIFT_LEFT_OP, $1, $3);
     }
 	| shift_expression RIGHT_OP additive_expression
     {
-        $$ = CreateNormalExpressionNode(SHIFT_RIGHT_OP, $1, $3);
+        $$ = CreateNormalExprNode(SHIFT_RIGHT_OP, $1, $3);
     }
 	;
 
@@ -276,19 +592,19 @@ relational_expression
 	: shift_expression {$$ = $1;}
 	| relational_expression '<' shift_expression
     {
-        $$ = CreateNormalExpressionNode(LESS_OP, $1, $3);
+        $$ = CreateNormalExprNode(LESS_OP, $1, $3);
     }
 	| relational_expression '>' shift_expression
     {
-        $$ = CreateNormalExpressionNode(GREATER_OP, $1, $3);
+        $$ = CreateNormalExprNode(GREATER_OP, $1, $3);
     }
 	| relational_expression LE_OP shift_expression
     {
-        $$ = CreateNormalExpressionNode(LESS_EQUAL_OP, $1, $3);
+        $$ = CreateNormalExprNode(LESS_EQUAL_OP, $1, $3);
     }
 	| relational_expression GE_OP shift_expression
     {
-        $$ = CreateNormalExpressionNode(GREATER_EQUAL_OP, $1, $3);
+        $$ = CreateNormalExprNode(GREATER_EQUAL_OP, $1, $3);
     }
 	;
 
@@ -296,11 +612,11 @@ equality_expression
 	: relational_expression {$$ = $1;}
     | equality_expression EQ_OP relational_expression
     {
-        $$ = CreateNormalExpressionNode(EQUAL_OP, $1, $3);
+        $$ = CreateNormalExprNode(EQUAL_OP, $1, $3);
     }
 	| equality_expression NE_OP relational_expression
     {
-        $$ = CreateNormalExpressionNode(NOT_EQUAL_OP, $1, $3);
+        $$ = CreateNormalExprNode(NOT_EQUAL_OP, $1, $3);
     }
 	;
 
@@ -308,7 +624,7 @@ and_expression
 	: equality_expression {$$ = $1;}
     | and_expression '&' equality_expression
     {
-        $$ = CreateNormalExpressionNode(BITWISE_AND_OP, $1, $3);
+        $$ = CreateNormalExprNode(BITWISE_AND_OP, $1, $3);
     }
 	;
 
@@ -316,7 +632,7 @@ exclusive_or_expression
 	: and_expression {$$ = $1;}
 	| exclusive_or_expression '^' and_expression
     {
-        $$ = CreateNormalExpressionNode(BITWISE_XOR_OP, $1, $3);
+        $$ = CreateNormalExprNode(BITWISE_XOR_OP, $1, $3);
     }
 	;
 
@@ -324,7 +640,7 @@ inclusive_or_expression
 	: exclusive_or_expression {$$ = $1;}
 	| inclusive_or_expression '|' exclusive_or_expression
     {
-        $$ = CreateNormalExpressionNode(BITWISE_OR_OP, $1, $3);
+        $$ = CreateNormalExprNode(BITWISE_OR_OP, $1, $3);
     }
 	;
 
@@ -332,7 +648,7 @@ logical_and_expression
 	: inclusive_or_expression {$$ = $1;}
 	| logical_and_expression AND_OP inclusive_or_expression
     {
-        $$ = CreateNormalExpressionNode(LOGICAL_AND_OP, $1, $3);
+        $$ = CreateNormalExprNode(LOGICAL_AND_OP, $1, $3);
     }
 	;
 
@@ -340,7 +656,7 @@ logical_or_expression
 	: logical_and_expression {$$ = $1;}
 	| logical_or_expression OR_OP logical_and_expression
     {
-        $$ = CreateNormalExpressionNode(LOGICAL_AND_OP, $1, $3);
+        $$ = CreateNormalExprNode(LOGICAL_AND_OP, $1, $3);
     }
 	;
 
@@ -353,7 +669,7 @@ assignment_expression
 	: conditional_expression {$$ = $1;}
 	| unary_expression assignment_operator assignment_expression
     {
-        $$ = CreateNormalExpressionNode($2, $1, $3);
+        $$ = CreateNormalExprNode($2, $1, $3);
     }
 	;
 
@@ -372,8 +688,8 @@ assignment_operator
 	;
 
 expression
-	: assignment_expression {$$ = AddToExpressionStatement(NULL, $1);}
-	| expression ',' assignment_expression {$$ = AddToExpressionStatement($1, $3);}
+	: assignment_expression {$$ = AddToExprStmt(NULL, $1);}
+	| expression ',' assignment_expression {$$ = AddToExprStmt($1, $3);}
 	;
 
 constant_expression
@@ -381,33 +697,47 @@ constant_expression
 	;
 
 declaration
-	: declaration_specifiers ';'
-	| declaration_specifiers init_declarator_list ';'
+	: declaration_specifiers ';' {$$ = CreateDeclNode($1, NULL);}
+	| declaration_specifiers init_declarator_list ';' {$$ = CreateDeclNode($1, $2);}
     | TYPEDEF declaration_specifiers ';'
+    {
+        $$ = NULL;
+    }
     | TYPEDEF declaration_specifiers init_declarator_list ';'
+    {
+        $$ = NULL;
+    }
 	;
 
 declaration_specifiers
-	: storage_class_specifier
-    | storage_class_specifier declaration_specifiers
-	| type_specifier
+	: storage_class_specifier {$$ = NULL;}
+    | storage_class_specifier declaration_specifiers {$$ = $2;}
+	| type_specifier {$$ = $1;}
 	| type_specifier declaration_specifiers
-	| type_qualifier
-	| type_qualifier declaration_specifiers
-	| function_specifier
-	| function_specifier declaration_specifiers
-    | address_qualifier
-    | address_qualifier declaration_specifiers
+    {
+        // should not appear two type_specifier at same time
+        $$ = $1;
+    }
+	| type_qualifier {$$ = NULL;}
+	| type_qualifier declaration_specifiers {$$ = $2;}
+	| function_specifier {$$ = NULL;}
+	| function_specifier declaration_specifiers {$$ = $2;}
+    | address_qualifier {$$ = NULL;}
+    | address_qualifier declaration_specifiers {$$ = $2;}
 	;
 
 init_declarator_list
-	: init_declarator
-	| init_declarator_list ',' init_declarator
+	: init_declarator {$$ = AppendDeclDescNodeToList(NULL, $1);}
+	| init_declarator_list ',' init_declarator {$$ = AppendDeclDescNodeToList($1, $3);}
 	;
 
 init_declarator
-	: declarator
+	: declarator {$$ = $1;}
 	| declarator '=' initializer
+    {
+        ($1)->init_expression = $3;
+        $$ = $1;
+    }
 	;
 
 storage_class_specifier
@@ -419,9 +749,21 @@ storage_class_specifier
 
 type_specifier
     : struct_or_union_specifier
+    {
+        // TODO
+    }
 	| enum_specifier
+    {
+        // TODO
+    }
     | TYPE_NAME
+    {
+        // TODO: SymbolTable
+    }
 	| OPENCL_TYPE
+    {
+        $$ = $1;
+    }
     ;
 
 struct_or_union_specifier
@@ -446,9 +788,13 @@ struct_declaration
 
 specifier_qualifier_list
 	: type_specifier specifier_qualifier_list
-	| type_specifier
-    | type_qualifier specifier_qualifier_list
-	| type_qualifier
+    {
+        // should not appear two type_specifier at same time
+        $$ = $1;
+    }
+	| type_specifier {$$ = $1;}
+    | type_qualifier specifier_qualifier_list {$$ = $2;}
+	| type_qualifier {$$ = NULL;}
 	;
 
 struct_declarator_list
@@ -499,32 +845,84 @@ function_specifier
 	;
 
 declarator
-	: pointer direct_declarator
-	| direct_declarator
+	: pointer direct_declarator {$$ = AddArrayDescListToDeclDesc($2, $1);}
+	| direct_declarator {$$ = $1;}
 	;
 
 
 direct_declarator
-	: IDENTIFIER
-	| '(' declarator ')'
+	: IDENTIFIER {$$ = CreateDeclDescNode($1);}
+	| '(' declarator ')' {$$ = $2;}
 	| direct_declarator '[' type_qualifier_list assignment_expression ']'
+    {
+        unsigned long expr_value;
+        GetValueInExprNode($4, ULONG_TYPE, &expr_value);
+        ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| direct_declarator '[' type_qualifier_list ']'
+    {
+        ArrayDesc_node* tmp = CreateArrayDescNode(0, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| direct_declarator '[' assignment_expression ']'
+    {
+        unsigned long expr_value;
+        GetValueInExprNode($3, ULONG_TYPE, &expr_value);
+        ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']'
+    {
+        unsigned long expr_value;
+        GetValueInExprNode($5, ULONG_TYPE, &expr_value);
+        ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']'
+    {
+        unsigned long expr_value;
+        GetValueInExprNode($5, ULONG_TYPE, &expr_value);
+        ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| direct_declarator '[' type_qualifier_list '*' ']'
+    {
+        ArrayDesc_node* tmp = CreateArrayDescNode(0, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| direct_declarator '[' '*' ']'
+    {
+        // variable length of array
+        ArrayDesc_node* tmp = CreateArrayDescNode(0, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| direct_declarator '[' ']'
+    {
+        // decays to a pointer
+        ArrayDesc_node* tmp = CreateArrayDescNode(0, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| direct_declarator '(' parameter_type_list ')'
-	| direct_declarator '(' identifier_list ')'
+    {
+        $$ = AddParamToDeclDesc($1, $3);
+    }
+    | direct_declarator '(' identifier_list ')'
+    {
+        // deprecated (old syntax)
+        $$ = $1;
+    }
 	| direct_declarator '(' ')'
+    {
+        $$ = AddParamToDeclDesc($1, NULL);
+    }
 	;
 
 pointer
-	: '*'
-	| '*' type_qualifier_list
-	| '*' pointer
-	| '*' type_qualifier_list pointer
+	: '*' {$$ = AppendArrayDescNodeToList(NULL, CreateArrayDescNode(1, ARRAY_DESC_POINTER));}
+	| '*' type_qualifier_list {$$ = AppendArrayDescNodeToList(NULL, CreateArrayDescNode(1, ARRAY_DESC_POINTER));}
+	| '*' pointer {$$ = AppendArrayDescNodeToList($2, CreateArrayDescNode(1, ARRAY_DESC_POINTER));}
+	| '*' type_qualifier_list pointer {$$ = AppendArrayDescNodeToList($3, CreateArrayDescNode(1, ARRAY_DESC_POINTER));}
 	;
 
 type_qualifier_list
@@ -534,19 +932,23 @@ type_qualifier_list
 
 
 parameter_type_list
-	: parameter_list
+	: parameter_list {$$ = $1;}
 	| parameter_list ',' ELLIPSIS
+    {
+        // ignore the case with variable length of parameters
+        $$ = $1;
+    }
 	;
 
 parameter_list
-	: parameter_declaration
-	| parameter_list ',' parameter_declaration
+	: parameter_declaration {$$ = AppendParamNodeToList(NULL, $1);}
+	| parameter_list ',' parameter_declaration {$$ = AppendParamNodeToList($1, $3);}
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator
-	| declaration_specifiers abstract_declarator
-	| declaration_specifiers
+	: declaration_specifiers declarator {$$ = CreateParamNode($1, $2);}
+	| declaration_specifiers abstract_declarator {$$ = CreateParamNode($1, $2);}
+	| declaration_specifiers {$$ = CreateParamNode($1, NULL);}
 	;
 
 identifier_list
@@ -555,34 +957,77 @@ identifier_list
 	;
 
 type_name
-	: specifier_qualifier_list
+	: specifier_qualifier_list {$$ = $1;}
 	| specifier_qualifier_list abstract_declarator
+    {
+        // TODO: Mix TypeDesc_node
+    }
 	;
 
 abstract_declarator
-	: pointer
-	| direct_abstract_declarator
-	| pointer direct_abstract_declarator
+	: pointer {$$ = AddArrayDescListToDeclDesc(NULL, $1);}
+	| direct_abstract_declarator {$$ = $1;}
+	| pointer direct_abstract_declarator {$$ = AddArrayDescListToDeclDesc($2, $1);}
 	;
 
 direct_abstract_declarator
-	: '(' abstract_declarator ')'
+	: '(' abstract_declarator ')' {$$ = $2;}
 	| '[' ']'
+    {
+        ArrayDesc_node* tmp = CreateArrayDescNode(0, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc(NULL, tmp);
+    }
 	| '[' assignment_expression ']'
+    {
+        unsigned long expr_value;
+        GetValueInExprNode($2, ULONG_TYPE, &expr_value);
+        ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc(NULL, tmp);
+    }
 	| direct_abstract_declarator '[' ']'
+    {
+        ArrayDesc_node* tmp = CreateArrayDescNode(0, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| direct_abstract_declarator '[' assignment_expression ']'
+    {
+        unsigned long expr_value;
+        GetValueInExprNode($3, ULONG_TYPE, &expr_value);
+        ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| '[' '*' ']'
+    {
+        ArrayDesc_node* tmp = CreateArrayDescNode(0, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc(NULL, tmp);
+    }
 	| direct_abstract_declarator '[' '*' ']'
+    {
+        ArrayDesc_node* tmp = CreateArrayDescNode(0, ARRAY_DESC_ARRAY);
+        $$ = AddArrayDescToDeclDesc($1, tmp);
+    }
 	| '(' ')'
+    {
+        $$ = AddParamToDeclDesc(NULL, NULL);
+    }
 	| '(' parameter_type_list ')'
+    {
+        $$ = AddParamToDeclDesc(NULL, $2);
+    }
 	| direct_abstract_declarator '(' ')'
+    {
+        $$ = AddParamToDeclDesc($1, NULL);
+    }
 	| direct_abstract_declarator '(' parameter_type_list ')'
+    {
+        $$ = AddParamToDeclDesc($1, $3);
+    }
 	;
 
 initializer
-	: assignment_expression
-	| '{' initializer_list '}'
-	| '{' initializer_list ',' '}'
+	: assignment_expression {$$ = $1;}
+	| '{' initializer_list '}' {$$ = NULL;}
+	| '{' initializer_list ',' '}' {$$ = NULL;}
 	;
 
 initializer_list
@@ -607,12 +1052,12 @@ designator
 	;
 
 statement
-	: labeled_statement
-	| compound_statement
-	| expression_statement
-	| selection_statement
-	| iteration_statement
-	| jump_statement
+	: labeled_statement {$$ = NULL;}
+	| compound_statement {$$ = CreateStmtNode($1, COMPOUND_STMT);}
+	| expression_statement {$$ = CreateStmtNode($1, EXPRESSION_STMT);}
+	| selection_statement {$$ = CreateStmtNode($1, SELECTION_STMT);}
+	| iteration_statement {$$ = CreateStmtNode($1, ITERATION_STMT);}
+	| jump_statement {$$ = $1;}
 	;
 
 labeled_statement
@@ -637,8 +1082,8 @@ block_item
 	;
 
 expression_statement
-	: ';'
-	| expression ';'
+	: ';' {$$ = NULL;}
+	| expression ';' {$$ = $1;}
 	;
 
 selection_statement
@@ -649,6 +1094,9 @@ selection_statement
 
 iteration_statement
 	: WHILE '(' expression ')' statement
+    {
+
+    }
 	| DO statement WHILE '(' expression ')' ';'
 	| FOR '(' expression_statement expression_statement ')' statement
 	| FOR '(' expression_statement expression_statement expression ')' statement
