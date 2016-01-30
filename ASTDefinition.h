@@ -34,6 +34,8 @@ typedef enum TYPE_DESC_KIND TYPE_DESC_KIND;
 typedef enum ITERATION_STMT_KIND ITERATION_STMT_KIND;
 
 TypeDesc_node* CreateScalarTypeDesc(OPENCL_DATA_TYPE);
+TypeDesc_node* MergeTypeDesc(TypeDesc_node*, TypeDesc_node*);
+Parameter_node_list* GetFuncParamInTypeDesc(TypeDesc_node*);
 Constant_node* CreateEmptyConstantNode(void);
 Expression_node* CreateDirectExprNode(void*, Expression_node*, Expression_node*, EXPRESSION_KIND);
 Expression_node* CreateNormalExprNode(EXPRESSION_KIND, Expression_node*, Expression_node*);
@@ -58,6 +60,7 @@ Selection_node* CreateSelectionNode(SELECTION_KIND, ExpressionStatement*, Statem
 SelectionStatement* CreateSelectionStmt(Selection_node*);
 SelectionStatement* AddToSelectionStmt(SelectionStatement*, Selection_node*);
 SelectionStatement* MergeSelectionStmt(SelectionStatement*, SelectionStatement*);
+Function_node* CreateFunctionNode(TypeDesc_node*, Declaration_desc_node*, CompoundStatement*);
 
 enum OPENCL_DATA_TYPE
 {
@@ -250,8 +253,8 @@ struct TypeDesc_node
     ArrayDesc_node* array_desc_tail;
 
     TYPE_DESC_KIND kind;
-    Parameter_node* parameter_head;
-    Parameter_node* parameter_tail;
+    Parameter_node_list* parameter_list_head;
+    Parameter_node_list* parameter_list_tail;
 };
 
 struct ArrayDesc_node_list
@@ -273,12 +276,9 @@ struct ArrayDesc_node
 struct Function_node
 {
     char* function_name;
-    Parameter_node* parameter_head;
-    Parameter_node* parameter_tail;
-    Declaration_node* declaration_head;
-    Declaration_node* declaration_tail;
-    Statement_node* statement_head;
-    Statement_node* statement_tail;
+    TypeDesc_node* return_type;
+    Parameter_node_list* parameter_list;
+    CompoundStatement* content_statement;
 };
 
 struct Parameter_node
@@ -292,6 +292,7 @@ struct Parameter_node_list
 {
     Parameter_node* parameter_head;
     Parameter_node* parameter_tail;
+    Parameter_node_list* next;
 };
 
 struct Declaration_node

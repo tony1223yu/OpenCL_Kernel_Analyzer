@@ -227,33 +227,26 @@ Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Para
         ret->identifier_type->array_desc_tail = NULL;
         if (param_node_list == NULL)
         {
-            ret->identifier_type->parameter_head = NULL;
-            ret->identifier_type->parameter_tail = NULL;
+            ret->identifier_type->parameter_list_head = NULL;
+            ret->identifier_type->parameter_list_tail = NULL;
         }
         else
         {
-            ret->identifier_type->parameter_head = param_node_list->parameter_head;
-            ret->identifier_type->parameter_tail = param_node_list->parameter_tail;
+            ret->identifier_type->parameter_list_head = param_node_list;
+            ret->identifier_type->parameter_list_tail = param_node_list;
         }
     }
     else
     {
-        if (currType->parameter_head == NULL)
+        if (currType->parameter_list_head == NULL)
         {
-            if (param_node_list == NULL)
-            {
-                currType->parameter_head = NULL;
-                currType->parameter_tail = NULL;
-            }
-            else
-            {
-                currType->parameter_head = param_node_list->parameter_head;
-                currType->parameter_tail = param_node_list->parameter_tail;
-            }
+            currType->parameter_list_head = param_node_list;
+            currType->parameter_list_tail = param_node_list;
         }
         else
         {
-           fprintf(stderr, "[Error] Multiple parameter definition in %s\n", __func__);
+            currType->parameter_list_tail->next = param_node_list;
+            currType->parameter_list_tail = param_node_list;
         }
     }
     return ret;
@@ -283,8 +276,8 @@ Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node* decl_desc, 
         ret->identifier_type->struct_name = NULL;
         ret->identifier_type->array_desc_head = array_desc;
         ret->identifier_type->array_desc_tail = array_desc;
-        ret->identifier_type->parameter_head = NULL;
-        ret->identifier_type->parameter_tail = NULL;
+        ret->identifier_type->parameter_list_head = NULL;
+        ret->identifier_type->parameter_list_tail = NULL;
     }
     else
     {
@@ -326,8 +319,8 @@ Declaration_desc_node* AddArrayDescListToDeclDesc(Declaration_desc_node* decl_de
         ret->identifier_type->struct_name = NULL;
         ret->identifier_type->array_desc_head = array_desc_list->array_desc_head;
         ret->identifier_type->array_desc_tail = array_desc_list->array_desc_tail;
-        ret->identifier_type->parameter_head = NULL;
-        ret->identifier_type->parameter_tail = NULL;
+        ret->identifier_type->parameter_list_head = NULL;
+        ret->identifier_type->parameter_list_tail = NULL;
     }
     else
     {
@@ -359,6 +352,7 @@ Parameter_node_list* AppendParamNodeToList(Parameter_node_list* origin_list, Par
         Parameter_node_list* ret = (Parameter_node_list*) malloc(sizeof(Parameter_node_list));
         ret->parameter_head = new_node;
         ret->parameter_tail = new_node;
+        ret->next = NULL;
         return ret;
     }
     else
@@ -385,8 +379,69 @@ TypeDesc_node* CreateScalarTypeDesc(OPENCL_DATA_TYPE type)
     ret->array_desc_head = NULL;
     ret->array_desc_tail = NULL;
     ret->kind = TYPE_WITHOUT_PARAM;
-    ret->parameter_head = NULL;
-    ret->parameter_tail = NULL;
+    ret->parameter_list_head = NULL;
+    ret->parameter_list_tail = NULL;
+    return ret;
+}
+
+TypeDesc_node* MergeTypeDesc(TypeDesc_node* left, TypeDesc_node* right)
+{
+    // TODO
+    if ((left == NULL) && (right == NULL))
+        return NULL;
+    else if (left == NULL)
+        return right;
+    else if (right == NULL)
+        return left;
+    else
+    {
+        if ((right->type != NONE_TYPE) || (right->struct_name != NULL))
+        {
+            fprintf(stderr, "[Error] right type descriptor cannot be merged in %s\n", __func__);
+        }
+
+        // right->type should always be NONE_TYPE. That is, it only consists of parameter and array information.
+        if (right->array_desc_head != NULL)
+        {
+            if (left->array_desc_head != NULL)
+            {
+                left->array_desc_tail->next = right->array_desc_tail;
+                left->array_desc_tail = right->array_desc_tail;
+            }
+            else
+            {
+                left->array_desc_head = right->array_desc_head;
+                left->array_desc_tail = right->array_desc_tail;
+            }
+        }
+
+        if (right->parameter_list_head != NULL)
+        {
+            if (left->parameter_list_head != NULL)
+            {
+                left->parameter_list_tail->next = right->parameter_list_tail;
+                left->parameter_list_tail = right->parameter_list_tail;
+            }
+            else
+            {
+                left->parameter_list_head = right->parameter_list_head;
+                left->parameter_list_tail = right->parameter_list_tail;
+            }
+        }
+
+        free (right);
+    }
+
+}
+
+Parameter_node_list* GetFuncParamInTypeDesc(TypeDesc_node* type)
+{
+    // Function param would always appear in parameter_list_head
+    Parameter_node_list* ret = type->parameter_list_head;
+    if (type->parameter_list_head)
+        type->parameter_list_head = type->parameter_list_head->next;
+
+    ret->next = NULL;
     return ret;
 }
 
@@ -528,6 +583,20 @@ SelectionStatement* MergeSelectionStmt(SelectionStatement* left, SelectionStatem
     }
 }
 
+Function_node* CreateFunctionNode(TypeDesc_node* type, Declaration_desc_node* decl_desc, CompoundStatement* compound_stmt)
+{
+    Function_node* ret = (Function_node*) malloc(sizeof(Function_node));
+    ret->function_name = decl_desc->identifier_name;
+    ret->parameter_list = GetFuncParamInTypeDesc(decl_desc->identifier_type);
+
+    // this would free decl_desc->identifier_type
+    ret->return_type = MergeTypeDesc(type, decl_desc->identifier_type);
+    free (decl_desc);
+
+    ret->content_statement = compound_stmt;
+    return ret;
+}
+
 %}
 
 %union
@@ -540,6 +609,7 @@ SelectionStatement* MergeSelectionStmt(SelectionStatement* left, SelectionStatem
     Declaration_node* decl_node;
     Declaration_desc_node* decl_desc_node;
     Declaration_desc_node_list* decl_desc_node_list;
+    Function_node* func_node;
     ExpressionStatement* expr_stmt;
     IterationStatement* iter_stmt;
     SelectionStatement* sel_stmt;
@@ -586,6 +656,7 @@ SelectionStatement* MergeSelectionStmt(SelectionStatement* left, SelectionStatem
 %type <expr_kind> assignment_operator
 %type <param_node_list> parameter_type_list parameter_list
 %type <param_node> parameter_declaration
+%type <func_node> function_definition
 
 %start program_unit
 %%
@@ -1287,10 +1358,13 @@ external_declaration
 function_definition
 	: declaration_specifiers declarator declaration_list compound_statement
     {
-        // deprecated (old syntax)
-        return NULL;
+        // deprecated (old syntax): e.g. int func(A, B, C) int A; float B; char C; {...}
+        $$ = NULL;
     }
     | declaration_specifiers declarator compound_statement
+    {
+        $$ = CreateFunctionNode($1, $2, $3);
+    }
 	;
 
 declaration_list
