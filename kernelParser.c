@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "ASTDefinition.h"
+
 extern int  yyparse();
 extern FILE *yyin;
+extern Program_node* program;
 
 int main(int argc, char *argv[])
 {
@@ -19,6 +22,7 @@ int main(int argc, char *argv[])
 
     yyin=fp;
 
+    program = CreateProgramNode();
     yyparse();
     fclose(fp);
 }

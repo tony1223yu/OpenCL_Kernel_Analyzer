@@ -3,6 +3,58 @@
 #include <stdlib.h>
 #include "ASTDefinition.h"
 
+extern Program_node* program;
+
+void AddFuncNodeToProgram(Program_node* prog, Function_node* func_node)
+{
+    if (func_node == NULL)
+        return;
+    else
+    {
+        if (prog == NULL)
+        {
+            fprintf(stderr, "[Error] program_node is NULL in %s\n", __func__);
+            return;
+        }
+
+        if (prog->function_head == NULL)
+        {
+            prog->function_head = func_node;
+            prog->function_tail = func_node;
+        }
+        else
+        {
+            prog->function_tail->next = func_node;
+            prog->function_tail = func_node;
+        }
+    }
+}
+
+void AddDeclNodeToProgram(Program_node* prog, Declaration_node* decl_node)
+{
+    if (decl_node == NULL)
+        return;
+    else
+    {
+        if (prog == NULL)
+        {
+            fprintf(stderr, "[Error] program_node is NULL in %s\n", __func__);
+            return;
+        }
+
+        if (prog->declaration_head == NULL)
+        {
+            prog->declaration_head = decl_node;
+            prog->declaration_tail = decl_node;
+        }
+        else
+        {
+            prog->declaration_tail->next = decl_node;
+            prog->declaration_tail = decl_node;
+        }
+    }
+}
+
 Expression_node* CreateDirectExprNode(void* ptr, Expression_node* left, Expression_node* right, EXPRESSION_KIND kind)
 {
     Expression_node* ret = (Expression_node*) malloc(sizeof(Expression_node));
@@ -594,7 +646,19 @@ Function_node* CreateFunctionNode(TypeDesc_node* type, Declaration_desc_node* de
     free (decl_desc);
 
     ret->content_statement = compound_stmt;
+    ret->next = NULL;
     return ret;
+}
+
+Program_node* CreateProgramNode(void)
+{
+    Program_node* ret = (Program_node*) malloc(sizeof(Program_node));
+    ret->struct_head = NULL;
+    ret->struct_tail = NULL;
+    ret->declaration_head = NULL;
+    ret->declaration_tail = NULL;
+    ret->function_head = NULL;
+    ret->function_tail = NULL;
 }
 
 %}
@@ -1351,8 +1415,8 @@ translation_unit
 	;
 
 external_declaration
-	: function_definition
-	| declaration
+	: function_definition {AddFuncNodeToProgram(program, $1);}
+	| declaration {AddDeclNodeToProgram(program, $1);}
 	;
 
 function_definition

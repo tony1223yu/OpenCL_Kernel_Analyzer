@@ -33,6 +33,9 @@ typedef enum ARRAY_DESC_KIND ARRAY_DESC_KIND;
 typedef enum TYPE_DESC_KIND TYPE_DESC_KIND;
 typedef enum ITERATION_STMT_KIND ITERATION_STMT_KIND;
 
+Program_node* program;
+
+
 TypeDesc_node* CreateScalarTypeDesc(OPENCL_DATA_TYPE);
 TypeDesc_node* MergeTypeDesc(TypeDesc_node*, TypeDesc_node*);
 Parameter_node_list* GetFuncParamInTypeDesc(TypeDesc_node*);
@@ -61,6 +64,9 @@ SelectionStatement* CreateSelectionStmt(Selection_node*);
 SelectionStatement* AddToSelectionStmt(SelectionStatement*, Selection_node*);
 SelectionStatement* MergeSelectionStmt(SelectionStatement*, SelectionStatement*);
 Function_node* CreateFunctionNode(TypeDesc_node*, Declaration_desc_node*, CompoundStatement*);
+void AddFuncNodeToProgram(Program_node*, Function_node*);
+void AddDeclNodeToProgram(Program_node*, Declaration_node*);
+Program_node* CreateProgramNode(void);
 
 enum OPENCL_DATA_TYPE
 {
@@ -279,6 +285,7 @@ struct Function_node
     TypeDesc_node* return_type;
     Parameter_node_list* parameter_list;
     CompoundStatement* content_statement;
+    Function_node* next;
 };
 
 struct Parameter_node
