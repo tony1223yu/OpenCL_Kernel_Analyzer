@@ -418,6 +418,116 @@ IterationStatement* CreateIterStmt(ITERATION_STMT_KIND kind, void* init, Express
     return ret;
 }
 
+CompoundStatement* CreateCompoundStmt(Declaration_node* decl_node, Statement_node* stmt_node)
+{
+    CompoundStatement* ret = (CompoundStatement*) malloc(sizeof(CompoundStatement));
+    ret->declaration_head = decl_node;
+    ret->declaration_tail = decl_node;
+    ret->statement_head = stmt_node;
+    ret->statement_tail = stmt_node;
+    return ret;
+}
+
+CompoundStatement* MergeCompoundStmt(CompoundStatement* left, CompoundStatement* right)
+{
+    if ((left == NULL) && (right == NULL))
+        return NULL;
+    else if (left == NULL)
+        return right;
+    else if (right == NULL)
+        return left;
+    else
+    {
+        if (right->declaration_head != NULL)
+        {
+            if (left->declaration_head != NULL)
+            {
+                left->declaration_tail->next = right->declaration_head;
+                left->declaration_tail = right->declaration_tail;
+            }
+            else
+            {
+                left->declaration_head = right->declaration_head;
+                left->declaration_tail = right->declaration_tail;
+            }
+        }
+
+        if (right->statement_head != NULL)
+        {
+            if (left->statement_head != NULL)
+            {
+                left->statement_tail->next = right->statement_head;
+                left->statement_tail = right->statement_tail;
+            }
+            else
+            {
+                left->statement_head = right->statement_head;
+                left->statement_tail = right->statement_tail;
+            }
+        }
+
+        free (right);
+        return left;
+    }
+}
+
+Selection_node* CreateSelectionNode(SELECTION_KIND kind, ExpressionStatement* expr, Statement_node* stmt)
+{
+    Selection_node* ret = (Selection_node*) malloc(sizeof(Selection_node));
+    ret->condition_kind = kind;
+    ret->condition_expression = expr;
+    ret->content_statement = stmt;
+    ret->next = NULL;
+    return ret;
+}
+
+SelectionStatement* CreateSelectionStmt(Selection_node* node)
+{
+    if (node == NULL)
+        return NULL;
+    else
+    {
+        SelectionStatement* ret = (SelectionStatement*) malloc(sizeof(SelectionStatement));
+        ret->selection_head = node;
+        ret->selection_tail = node;
+        return ret;
+    }
+}
+
+SelectionStatement* AddToSelectionStmt(SelectionStatement* stmt, Selection_node* node)
+{
+    if (stmt == NULL)
+    {
+        return CreateSelectionStmt(node);
+    }
+    else
+    {
+        if (node)
+        {
+           stmt->selection_tail->next = node;
+           stmt->selection_tail = node;
+        }
+        return stmt;
+    }
+}
+
+SelectionStatement* MergeSelectionStmt(SelectionStatement* left, SelectionStatement* right)
+{
+    if ((left == NULL) && (right == NULL))
+        return NULL;
+    else if (left == NULL)
+        return right;
+    else if (right == NULL)
+        return left;
+    else
+    {
+        left->selection_tail->next = right->selection_head;
+        left->selection_tail = right->selection_head;
+        free (right);
+        return left;
+    }
+}
+
 %}
 
 %union
@@ -470,7 +580,7 @@ IterationStatement* CreateIterStmt(ITERATION_STMT_KIND kind, void* init, Express
 %type <decl_desc_node> declarator init_declarator direct_declarator abstract_declarator direct_abstract_declarator
 %type <decl_desc_node_list> init_declarator_list
 %type <stmt_node> statement jump_statement
-%type <comp_stmt> compound_statement
+%type <comp_stmt> compound_statement block_item_list block_item
 %type <sel_stmt> selection_statement
 %type <iter_stmt> iteration_statement
 %type <expr_kind> assignment_operator
@@ -1088,18 +1198,18 @@ labeled_statement
 	;
 
 compound_statement
-	: '{' '}'
-    | '{' block_item_list '}'
+	: '{' '}' {$$ = NULL;}
+    | '{' block_item_list '}' {$$ = $2;}
 	;
 
 block_item_list
-	: block_item
-	| block_item_list block_item
+	: block_item {$$ = $1;}
+	| block_item_list block_item {$$ = MergeCompoundStmt($1, $2);}
 	;
 
 block_item
-    : declaration
-	| statement
+    : declaration {$$ = CreateCompoundStmt($1, NULL);}
+	| statement {$$ = CreateCompoundStmt(NULL, $1);}
 	;
 
 expression_statement
@@ -1109,7 +1219,23 @@ expression_statement
 
 selection_statement
 	: IF '(' expression ')' statement
+    {
+       Selection_node* tmp = CreateSelectionNode(SELECTION_WITH_COND, $3, $5);
+       $$ = CreateSelectionStmt(tmp);
+    }
 	| IF '(' expression ')' statement ELSE statement
+    {
+        Selection_node* tmp = CreateSelectionNode(SELECTION_WITH_COND, $3, $5);
+        SelectionStatement* stmt = CreateSelectionStmt(tmp);
+        if ($7->statement_kind == SELECTION_STMT)
+        {
+            $$ = MergeSelectionStmt(stmt, $7->stmt.selection_stmt);
+        }
+        else
+        {
+            $$ = AddToSelectionStmt(stmt, CreateSelectionNode(SELECTION_WITHOUT_COND, NULL, $7));
+        }
+    }
 	| SWITCH '(' expression ')' statement {$$ = NULL;}
 	;
 
@@ -1160,6 +1286,10 @@ external_declaration
 
 function_definition
 	: declaration_specifiers declarator declaration_list compound_statement
+    {
+        // deprecated (old syntax)
+        return NULL;
+    }
     | declaration_specifiers declarator compound_statement
 	;
 

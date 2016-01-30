@@ -52,6 +52,12 @@ void GetValueInExprNode(Expression_node*, OPENCL_DATA_TYPE, void*);
 Parameter_node_list* AppendParamNodeToList(Parameter_node_list*, Parameter_node*);
 Parameter_node* CreateParamNode(TypeDesc_node*, Declaration_desc_node*);
 IterationStatement* CreateIterStmt(ITERATION_STMT_KIND, void*, ExpressionStatement*, ExpressionStatement*, Statement_node*);
+CompoundStatement* CreateCompoundStmt(Declaration_node*, Statement_node*);
+CompoundStatement* MergeCompoundStmt(CompoundStatement*, CompoundStatement*);
+Selection_node* CreateSelectionNode(SELECTION_KIND, ExpressionStatement*, Statement_node*);
+SelectionStatement* CreateSelectionStmt(Selection_node*);
+SelectionStatement* AddToSelectionStmt(SelectionStatement*, Selection_node*);
+SelectionStatement* MergeSelectionStmt(SelectionStatement*, SelectionStatement*);
 
 enum OPENCL_DATA_TYPE
 {
@@ -368,6 +374,7 @@ struct Selection_node
     SELECTION_KIND condition_kind;
     ExpressionStatement* condition_expression;
     Statement_node* content_statement;
+    Selection_node* next;
 };
 
 struct Expression_node
