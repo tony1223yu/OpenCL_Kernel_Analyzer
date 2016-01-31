@@ -2,7 +2,7 @@
 #define __AST_Definition_H__
 
 typedef struct Program_node Program_node;
-typedef struct TypeDesc_node TypeDesc_node;
+typedef struct TypeDescriptor TypeDescriptor;
 typedef struct ArrayDesc_node ArrayDesc_node;
 typedef struct ArrayDesc_node_list ArrayDesc_node_list;
 typedef struct Constant_node Constant_node;
@@ -36,9 +36,8 @@ typedef enum ITERATION_STMT_KIND ITERATION_STMT_KIND;
 Program_node* program;
 
 
-TypeDesc_node* CreateScalarTypeDesc(OPENCL_DATA_TYPE);
-TypeDesc_node* MergeTypeDesc(TypeDesc_node*, TypeDesc_node*);
-Parameter_node_list* GetFuncParamInTypeDesc(TypeDesc_node*);
+TypeDescriptor* CreateScalarTypeDesc(OPENCL_DATA_TYPE);
+TypeDescriptor* MergeTypeDesc(TypeDescriptor*, TypeDescriptor*);
 Constant_node* CreateEmptyConstantNode(void);
 Expression_node* CreateDirectExprNode(void*, Expression_node*, Expression_node*, EXPRESSION_KIND);
 Expression_node* CreateNormalExprNode(EXPRESSION_KIND, Expression_node*, Expression_node*);
@@ -46,16 +45,16 @@ FunctionInvocation_node* CreateFunctionInvocation_node(char*, Expression_node_li
 Expression_node_list* AppendExprNodeToList(Expression_node_list*, Expression_node*);
 ExpressionStatement* AddToExprStmt(ExpressionStatement*, Expression_node*);
 Statement_node* CreateStmtNode(void*, STATEMENT_KIND);
-Declaration_node* CreateDeclNode(TypeDesc_node*, Declaration_desc_node_list*);
+Declaration_node* CreateDeclNode(TypeDescriptor*, Declaration_desc_node_list*);
 Declaration_desc_node_list* AppendDeclDescNodeToList(Declaration_desc_node_list*, Declaration_desc_node*);
 Declaration_desc_node* CreateDeclDescNode(char*);
 ArrayDesc_node_list* AppendArrayDescNodeToList(ArrayDesc_node_list*, ArrayDesc_node*);
 ArrayDesc_node* CreateArrayDescNode(unsigned long, ARRAY_DESC_KIND);
 Declaration_desc_node* AddArrayDescListToDeclDesc(Declaration_desc_node*, ArrayDesc_node_list*);
 Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node*, ArrayDesc_node*);
-void GetValueInExprNode(Expression_node*, OPENCL_DATA_TYPE, void*);
+void GetUlongValueInExprNode(Expression_node*, unsigned long*);
 Parameter_node_list* AppendParamNodeToList(Parameter_node_list*, Parameter_node*);
-Parameter_node* CreateParamNode(TypeDesc_node*, Declaration_desc_node*);
+Parameter_node* CreateParamNode(TypeDescriptor*, Declaration_desc_node*);
 IterationStatement* CreateIterStmt(ITERATION_STMT_KIND, void*, ExpressionStatement*, ExpressionStatement*, Statement_node*);
 CompoundStatement* CreateCompoundStmt(Declaration_node*, Statement_node*);
 CompoundStatement* MergeCompoundStmt(CompoundStatement*, CompoundStatement*);
@@ -63,19 +62,37 @@ Selection_node* CreateSelectionNode(SELECTION_KIND, ExpressionStatement*, Statem
 SelectionStatement* CreateSelectionStmt(Selection_node*);
 SelectionStatement* AddToSelectionStmt(SelectionStatement*, Selection_node*);
 SelectionStatement* MergeSelectionStmt(SelectionStatement*, SelectionStatement*);
-Function_node* CreateFunctionNode(TypeDesc_node*, Declaration_desc_node*, CompoundStatement*);
+Function_node* CreateFunctionNode(TypeDescriptor*, Declaration_desc_node*, CompoundStatement*);
 void AddFuncNodeToProgram(Program_node*, Function_node*);
 void AddDeclNodeToProgram(Program_node*, Declaration_node*);
 Program_node* CreateProgramNode(void);
+
+void DebugProgramNode(Program_node*);
+void DebugFuncNode(Function_node*);
+void DebugCompoundStmt(CompoundStatement*, int);
+void DebugIterStmt(IterationStatement*, int);
+void DebugSelectionStmt(SelectionStatement*, int);
+void DebugSelectionNode(Selection_node*, int);
+void DebugStmtNode(Statement_node*, int);
+void DebugExprStmt(ExpressionStatement*, int);
+void DebugExprNode(Expression_node*, int);
+void DebugTypeDesc(TypeDescriptor*, char*);
+void DebugExprKind(EXPRESSION_KIND, char*);
+void DebugParamNode(Parameter_node*, int);
+void DebugDeclNode(Declaration_node*, int);
+void DebugReturnStmt(ReturnStatement*, int);
+void DebugConstantNode(Constant_node*, int);
+void DebugFunctionInvocationNode(FunctionInvocation_node*, int);
+TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor*, TypeDescriptor*);
 
 enum OPENCL_DATA_TYPE
 {
     NONE_TYPE = 0x0,
     STRUCT_TYPE,
     UNION_TYPE,
+    VOID_TYPE,
     BOOL_TYPE = 0x1000,
     HALF_TYPE,
-    VOID_TYPE,
     CHAR_TYPE,
     CHAR2_TYPE,
     CHAR4_TYPE,
@@ -184,7 +201,8 @@ enum EXPRESSION_KIND
 enum ARRAY_DESC_KIND
 {
     ARRAY_DESC_POINTER = 0,
-    ARRAY_DESC_ARRAY
+    ARRAY_DESC_ARRAY,
+    ARRAY_DESC_FUNC_POINTER
 };
 
 enum TYPE_DESC_KIND
@@ -244,12 +262,12 @@ struct StructDesc
 
 struct StructMember
 {
-    TypeDesc_node* structMember_type;
+    TypeDescriptor* structMember_type;
     char* structMember_name;
     StructMember* next;
 };
 
-struct TypeDesc_node
+struct TypeDescriptor
 {
     OPENCL_DATA_TYPE type;
     char* struct_name;
@@ -259,8 +277,9 @@ struct TypeDesc_node
     ArrayDesc_node* array_desc_tail;
 
     TYPE_DESC_KIND kind;
-    Parameter_node_list* parameter_list_head;
-    Parameter_node_list* parameter_list_tail;
+    // parameter for function definition
+    Parameter_node* parameter_head;
+    Parameter_node* parameter_tail;
 };
 
 struct ArrayDesc_node_list
@@ -274,23 +293,26 @@ struct ArrayDesc_node
 {
     // 0 in size means that the length is unknown (in function prototype)
     unsigned long size;
-    ArrayDesc_node* next;
     ARRAY_DESC_KIND desc_kind;
+    Parameter_node* parameter_head;
+    Parameter_node* parameter_tail;
+    ArrayDesc_node* next;
 };
 
 // single function definition
 struct Function_node
 {
     char* function_name;
-    TypeDesc_node* return_type;
-    Parameter_node_list* parameter_list;
+    TypeDescriptor* return_type;
+    Parameter_node* parameter_head;
+    Parameter_node* parameter_tail;
     CompoundStatement* content_statement;
     Function_node* next;
 };
 
 struct Parameter_node
 {
-    TypeDesc_node* parameter_type;
+    TypeDescriptor* parameter_type;
     Declaration_desc_node* parameter_desc;
     Parameter_node* next;
 };
@@ -299,13 +321,12 @@ struct Parameter_node_list
 {
     Parameter_node* parameter_head;
     Parameter_node* parameter_tail;
-    Parameter_node_list* next;
 };
 
 struct Declaration_node
 {
     // common type for all the variable
-    TypeDesc_node* declaration_type;
+    TypeDescriptor* declaration_type;
 
     Declaration_desc_node* declaration_desc_head;
     Declaration_desc_node* declaration_desc_tail;
@@ -315,7 +336,7 @@ struct Declaration_node
 struct Declaration_desc_node
 {
     // individual type for each variable
-    TypeDesc_node* identifier_type;
+    TypeDescriptor* identifier_type;
     char* identifier_name;
     Expression_node* init_expression;
     Declaration_desc_node* next;
@@ -395,11 +416,11 @@ struct Expression_node
     union direct_expr
     {
         char* identifier;
-        Expression_node* subscript;
+        ExpressionStatement* subscript;
         FunctionInvocation_node* function;
         Constant_node* constant;
         char* member;
-        TypeDesc_node* target_type;
+        TypeDescriptor* target_type;
         ExpressionStatement* expr_stmt;
     } direct_expr;
 
@@ -408,7 +429,7 @@ struct Expression_node
 
 struct Constant_node
 {
-    TypeDesc_node* constant_type;
+    TypeDescriptor* constant_type;
     union
     {
         int int_val;

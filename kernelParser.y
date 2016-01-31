@@ -76,13 +76,13 @@ Expression_node* CreateDirectExprNode(void* ptr, Expression_node* left, Expressi
             ret->direct_expr.constant = (Constant_node*)(ptr);
             break;
         case EXPRESSION_SUBSCRIPT:
-            ret->direct_expr.subscript = (Expression_node*)(ptr);
+            ret->direct_expr.subscript = (ExpressionStatement*)(ptr);
             break;
         case EXPRESSION_FUNCTION:
             ret->direct_expr.function = (FunctionInvocation_node*)(ptr);
             break;
         case EXPRESSION_TYPECAST:
-            ret->direct_expr.target_type = (TypeDesc_node*)(ptr);
+            ret->direct_expr.target_type = (TypeDescriptor*)(ptr);
             break;
         case EXPRESSION_EXPRSTMT:
             ret->direct_expr.expr_stmt = (ExpressionStatement*)(ptr);
@@ -180,7 +180,7 @@ Statement_node* CreateStmtNode(void* ptr, STATEMENT_KIND kind)
     return ret;
 }
 
-Declaration_node* CreateDeclNode(TypeDesc_node* type, Declaration_desc_node_list* desc_list)
+Declaration_node* CreateDeclNode(TypeDescriptor* type, Declaration_desc_node_list* desc_list)
 {
     Declaration_node* ret = (Declaration_node*) malloc(sizeof(Declaration_node));
     ret->declaration_type = type;
@@ -233,6 +233,8 @@ ArrayDesc_node* CreateArrayDescNode(unsigned long size, ARRAY_DESC_KIND kind)
     ret->size = size;
     ret->next = NULL;
     ret->desc_kind = kind;
+    ret->parameter_head = NULL;
+    ret->parameter_tail = NULL;
     return ret;
 }
 
@@ -256,7 +258,7 @@ ArrayDesc_node_list* AppendArrayDescNodeToList(ArrayDesc_node_list* origin_list,
 Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Parameter_node_list* param_node_list)
 {
     Declaration_desc_node* ret;
-    TypeDesc_node* currType;
+    TypeDescriptor* currType;
 
     if (decl_desc == NULL)
     {
@@ -271,7 +273,7 @@ Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Para
     currType = decl_desc->identifier_type;
     if (currType == NULL)
     {
-        ret->identifier_type = (TypeDesc_node*) malloc(sizeof(TypeDesc_node));
+        ret->identifier_type = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
         ret->identifier_type->type = NONE_TYPE;
         ret->identifier_type->kind = TYPE_WITH_PARAM;
         ret->identifier_type->struct_name = NULL;
@@ -279,26 +281,48 @@ Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Para
         ret->identifier_type->array_desc_tail = NULL;
         if (param_node_list == NULL)
         {
-            ret->identifier_type->parameter_list_head = NULL;
-            ret->identifier_type->parameter_list_tail = NULL;
+            ret->identifier_type->parameter_head = NULL;
+            ret->identifier_type->parameter_tail = NULL;
         }
         else
         {
-            ret->identifier_type->parameter_list_head = param_node_list;
-            ret->identifier_type->parameter_list_tail = param_node_list;
+            ret->identifier_type->parameter_head = param_node_list->parameter_head;
+            ret->identifier_type->parameter_tail = param_node_list->parameter_tail;
+            free (param_node_list);
         }
     }
     else
     {
-        if (currType->parameter_list_head == NULL)
+        if (currType->array_desc_head == NULL)
         {
-            currType->parameter_list_head = param_node_list;
-            currType->parameter_list_tail = param_node_list;
+            if (currType->kind != TYPE_WITHOUT_PARAM)
+                fprintf(stderr, "[Error] Redefined parameter in %s\n", __func__);
+
+            currType->kind = TYPE_WITH_PARAM;
+            if (param_node_list != NULL)
+            {
+                currType->parameter_head = param_node_list->parameter_head;
+                currType->parameter_tail = param_node_list->parameter_tail;
+                free (param_node_list);
+            }
         }
         else
         {
-            currType->parameter_list_tail->next = param_node_list;
-            currType->parameter_list_tail = param_node_list;
+            ArrayDesc_node* currArray = currType->array_desc_tail;
+            if (currArray->desc_kind == ARRAY_DESC_ARRAY)
+                fprintf(stderr, "[Error] Define array of functions in %s\n", __func__);
+            else if (currArray->desc_kind == ARRAY_DESC_FUNC_POINTER)
+                fprintf(stderr, "[Error] Redefined parameter of function pointers in %s\n", __func__);
+            else // ARRAY_DESC_POINTER
+            {
+                currArray->desc_kind = ARRAY_DESC_FUNC_POINTER;
+                if (param_node_list != NULL)
+                {
+                    currArray->parameter_head = param_node_list->parameter_head;
+                    currArray->parameter_tail = param_node_list->parameter_tail;
+                }
+                free (param_node_list);
+            }
         }
     }
     return ret;
@@ -307,7 +331,7 @@ Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Para
 Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node* decl_desc, ArrayDesc_node* array_desc)
 {
     Declaration_desc_node* ret;
-    TypeDesc_node* currType;
+    TypeDescriptor* currType;
 
     if (decl_desc == NULL)
     {
@@ -322,14 +346,14 @@ Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node* decl_desc, 
     currType = ret->identifier_type;
     if (currType == NULL)
     {
-        ret->identifier_type = (TypeDesc_node*) malloc(sizeof(TypeDesc_node));
+        ret->identifier_type = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
         ret->identifier_type->type = NONE_TYPE;
         ret->identifier_type->kind = TYPE_WITHOUT_PARAM;
         ret->identifier_type->struct_name = NULL;
         ret->identifier_type->array_desc_head = array_desc;
         ret->identifier_type->array_desc_tail = array_desc;
-        ret->identifier_type->parameter_list_head = NULL;
-        ret->identifier_type->parameter_list_tail = NULL;
+        ret->identifier_type->parameter_head = NULL;
+        ret->identifier_type->parameter_tail = NULL;
     }
     else
     {
@@ -350,7 +374,7 @@ Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node* decl_desc, 
 Declaration_desc_node* AddArrayDescListToDeclDesc(Declaration_desc_node* decl_desc, ArrayDesc_node_list* array_desc_list)
 {
     Declaration_desc_node* ret;
-    TypeDesc_node* currType;
+    TypeDescriptor* currType;
 
     if (decl_desc == NULL)
     {
@@ -365,14 +389,14 @@ Declaration_desc_node* AddArrayDescListToDeclDesc(Declaration_desc_node* decl_de
     currType = ret->identifier_type;
     if (currType == NULL)
     {
-        ret->identifier_type = (TypeDesc_node*) malloc(sizeof(TypeDesc_node));
+        ret->identifier_type = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
         ret->identifier_type->type = NONE_TYPE;
         ret->identifier_type->kind = TYPE_WITHOUT_PARAM;
         ret->identifier_type->struct_name = NULL;
         ret->identifier_type->array_desc_head = array_desc_list->array_desc_head;
         ret->identifier_type->array_desc_tail = array_desc_list->array_desc_tail;
-        ret->identifier_type->parameter_list_head = NULL;
-        ret->identifier_type->parameter_list_tail = NULL;
+        ret->identifier_type->parameter_head = NULL;
+        ret->identifier_type->parameter_tail = NULL;
     }
     else
     {
@@ -392,9 +416,39 @@ Declaration_desc_node* AddArrayDescListToDeclDesc(Declaration_desc_node* decl_de
 }
 
 // Note that the space of returnValue should be allocated by caller
-void GetValueInExprNode(Expression_node* expr_node, OPENCL_DATA_TYPE type, void* returnValue)
+void GetUlongValueInExprNode(Expression_node* expr_node, unsigned long* returnValue)
 {
-    // TODO
+    if (!expr_node) return;
+    if (expr_node->expression_kind != EXPRESSION_CONSTANT)
+        fprintf(stderr, "[Error] Expression is not a constant in %s\n", __func__);
+    else
+    {
+        Constant_node* node = expr_node->direct_expr.constant;
+        if (node->constant_type->kind != TYPE_WITHOUT_PARAM)
+            fprintf(stderr, "[Error] Invalid type of constant in %s\n", __func__);
+        if (node->constant_type->array_desc_head != NULL)
+            fprintf(stderr, "[Error] Invalid type of constant in %s\n", __func__);
+
+        switch (node->constant_type->type)
+        {
+            case INT_TYPE:
+                *returnValue = (unsigned long)(node->value.int_val);
+                break;
+            case UINT_TYPE:
+                *returnValue = (unsigned long)(node->value.uint_val);
+                break;
+            case LONG_TYPE:
+                *returnValue = (unsigned long)(node->value.long_val);
+                break;
+            case ULONG_TYPE:
+                *returnValue = (unsigned long)(node->value.ulong_val);
+                break;
+            case FLOAT_TYPE:
+            case DOUBLE_TYPE:
+                fprintf(stderr, "[Error] Invalid type of constant in %s\n", __func__);
+                break;
+        }
+    }
 }
 
 Parameter_node_list* AppendParamNodeToList(Parameter_node_list* origin_list, Parameter_node* new_node)
@@ -404,7 +458,6 @@ Parameter_node_list* AppendParamNodeToList(Parameter_node_list* origin_list, Par
         Parameter_node_list* ret = (Parameter_node_list*) malloc(sizeof(Parameter_node_list));
         ret->parameter_head = new_node;
         ret->parameter_tail = new_node;
-        ret->next = NULL;
         return ret;
     }
     else
@@ -415,7 +468,7 @@ Parameter_node_list* AppendParamNodeToList(Parameter_node_list* origin_list, Par
     }
 }
 
-Parameter_node* CreateParamNode(TypeDesc_node* type, Declaration_desc_node* desc)
+Parameter_node* CreateParamNode(TypeDescriptor* type, Declaration_desc_node* desc)
 {
     Parameter_node* ret = (Parameter_node*) malloc(sizeof(Parameter_node));
     ret->parameter_type = type;
@@ -423,22 +476,21 @@ Parameter_node* CreateParamNode(TypeDesc_node* type, Declaration_desc_node* desc
     return ret;
 }
 
-TypeDesc_node* CreateScalarTypeDesc(OPENCL_DATA_TYPE type)
+TypeDescriptor* CreateScalarTypeDesc(OPENCL_DATA_TYPE type)
 {
-    TypeDesc_node* ret = (TypeDesc_node*) malloc(sizeof(TypeDesc_node));
+    TypeDescriptor* ret = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
     ret->type = type;
     ret->struct_name = NULL;
     ret->array_desc_head = NULL;
     ret->array_desc_tail = NULL;
     ret->kind = TYPE_WITHOUT_PARAM;
-    ret->parameter_list_head = NULL;
-    ret->parameter_list_tail = NULL;
+    ret->parameter_head = NULL;
+    ret->parameter_tail = NULL;
     return ret;
 }
 
-TypeDesc_node* MergeTypeDesc(TypeDesc_node* left, TypeDesc_node* right)
+TypeDescriptor* MergeTypeDesc(TypeDescriptor* left, TypeDescriptor* right)
 {
-    // TODO
     if ((left == NULL) && (right == NULL))
         return NULL;
     else if (left == NULL)
@@ -449,7 +501,7 @@ TypeDesc_node* MergeTypeDesc(TypeDesc_node* left, TypeDesc_node* right)
     {
         if ((right->type != NONE_TYPE) || (right->struct_name != NULL))
         {
-            fprintf(stderr, "[Error] right type descriptor cannot be merged in %s\n", __func__);
+            fprintf(stderr, "[Error] Right type descriptor cannot be merged in %s\n", __func__);
         }
 
         // right->type should always be NONE_TYPE. That is, it only consists of parameter and array information.
@@ -457,8 +509,8 @@ TypeDesc_node* MergeTypeDesc(TypeDesc_node* left, TypeDesc_node* right)
         {
             if (left->array_desc_head != NULL)
             {
-                left->array_desc_tail->next = right->array_desc_tail;
-                left->array_desc_tail = right->array_desc_tail;
+                right->array_desc_tail->next = left->array_desc_head;
+                left->array_desc_head = right->array_desc_head;
             }
             else
             {
@@ -467,34 +519,25 @@ TypeDesc_node* MergeTypeDesc(TypeDesc_node* left, TypeDesc_node* right)
             }
         }
 
-        if (right->parameter_list_head != NULL)
+        left->kind = right->kind;
+
+        if (right->kind == TYPE_WITH_PARAM)
         {
-            if (left->parameter_list_head != NULL)
+            if (left->kind == TYPE_WITH_PARAM)
             {
-                left->parameter_list_tail->next = right->parameter_list_tail;
-                left->parameter_list_tail = right->parameter_list_tail;
+                fprintf(stderr, "[Error] Redefined parameters in %s", __func__);
             }
             else
             {
-                left->parameter_list_head = right->parameter_list_head;
-                left->parameter_list_tail = right->parameter_list_tail;
+                left->kind = TYPE_WITH_PARAM;
+                left->parameter_head = right->parameter_head;
+                left->parameter_tail = right->parameter_tail;
             }
         }
 
         free (right);
+        return left;
     }
-
-}
-
-Parameter_node_list* GetFuncParamInTypeDesc(TypeDesc_node* type)
-{
-    // Function param would always appear in parameter_list_head
-    Parameter_node_list* ret = type->parameter_list_head;
-    if (type->parameter_list_head)
-        type->parameter_list_head = type->parameter_list_head->next;
-
-    ret->next = NULL;
-    return ret;
 }
 
 Constant_node* CreateEmptyConstantNode(void)
@@ -635,16 +678,24 @@ SelectionStatement* MergeSelectionStmt(SelectionStatement* left, SelectionStatem
     }
 }
 
-Function_node* CreateFunctionNode(TypeDesc_node* type, Declaration_desc_node* decl_desc, CompoundStatement* compound_stmt)
+Function_node* CreateFunctionNode(TypeDescriptor* type, Declaration_desc_node* decl_desc, CompoundStatement* compound_stmt)
 {
     Function_node* ret = (Function_node*) malloc(sizeof(Function_node));
     ret->function_name = decl_desc->identifier_name;
-    ret->parameter_list = GetFuncParamInTypeDesc(decl_desc->identifier_type);
+    if (decl_desc->identifier_type == NULL)
+        fprintf(stderr, "[Error] No parameter declaration in %s\n", __func__);
+    else
+    {
+        ret->parameter_head = decl_desc->identifier_type->parameter_head;
+        ret->parameter_tail = decl_desc->identifier_type->parameter_tail;
+        decl_desc->identifier_type->parameter_head = NULL;
+        decl_desc->identifier_type->parameter_tail = NULL;
+        decl_desc->identifier_type->kind = TYPE_WITHOUT_PARAM;
 
-    // this would free decl_desc->identifier_type
-    ret->return_type = MergeTypeDesc(type, decl_desc->identifier_type);
-    free (decl_desc);
-
+        // this would free decl_desc->identifier_type
+        ret->return_type = MergeTypeDesc(type, decl_desc->identifier_type);
+        free (decl_desc);
+    }
     ret->content_statement = compound_stmt;
     ret->next = NULL;
     return ret;
@@ -665,7 +716,7 @@ Program_node* CreateProgramNode(void)
 
 %union
 {
-    TypeDesc_node* type_desc_node;
+    TypeDescriptor* type_desc_node;
     ArrayDesc_node_list* array_desc_node_list;
     Statement_node* stmt_node;
     Parameter_node* param_node;
@@ -802,7 +853,7 @@ unary_operator
 	| '*'
 	| '+'
 	| '-'
-	| '~'
+    | '~'
 	| '!'
 	;
 
@@ -1122,7 +1173,7 @@ direct_declarator
 	| direct_declarator '[' type_qualifier_list assignment_expression ']'
     {
         unsigned long expr_value;
-        GetValueInExprNode($4, ULONG_TYPE, &expr_value);
+        GetUlongValueInExprNode($4, &expr_value);
         ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
         $$ = AddArrayDescToDeclDesc($1, tmp);
     }
@@ -1134,21 +1185,21 @@ direct_declarator
 	| direct_declarator '[' assignment_expression ']'
     {
         unsigned long expr_value;
-        GetValueInExprNode($3, ULONG_TYPE, &expr_value);
+        GetUlongValueInExprNode($3, &expr_value);
         ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
         $$ = AddArrayDescToDeclDesc($1, tmp);
     }
 	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']'
     {
         unsigned long expr_value;
-        GetValueInExprNode($5, ULONG_TYPE, &expr_value);
+        GetUlongValueInExprNode($5, &expr_value);
         ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
         $$ = AddArrayDescToDeclDesc($1, tmp);
     }
 	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']'
     {
         unsigned long expr_value;
-        GetValueInExprNode($5, ULONG_TYPE, &expr_value);
+        GetUlongValueInExprNode($5, &expr_value);
         ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
         $$ = AddArrayDescToDeclDesc($1, tmp);
     }
@@ -1226,7 +1277,7 @@ type_name
 	: specifier_qualifier_list {$$ = $1;}
 	| specifier_qualifier_list abstract_declarator
     {
-        // TODO: Mix TypeDesc_node
+        // TODO: Mix TypeDescriptor
     }
 	;
 
@@ -1246,7 +1297,7 @@ direct_abstract_declarator
 	| '[' assignment_expression ']'
     {
         unsigned long expr_value;
-        GetValueInExprNode($2, ULONG_TYPE, &expr_value);
+        GetUlongValueInExprNode($2, &expr_value);
         ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
         $$ = AddArrayDescToDeclDesc(NULL, tmp);
     }
@@ -1258,7 +1309,7 @@ direct_abstract_declarator
 	| direct_abstract_declarator '[' assignment_expression ']'
     {
         unsigned long expr_value;
-        GetValueInExprNode($3, ULONG_TYPE, &expr_value);
+        GetUlongValueInExprNode($3, &expr_value);
         ArrayDesc_node* tmp = CreateArrayDescNode(expr_value, ARRAY_DESC_ARRAY);
         $$ = AddArrayDescToDeclDesc($1, tmp);
     }
