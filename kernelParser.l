@@ -117,10 +117,10 @@ void comment(void);
 
 
  /* TODO: seperate int/long and float/double */
-0[xX]{H}+{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.int_val = atoi(yytext);  return (CONSTANT); }
-0[0-7]*{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.int_val = atoi(yytext);  return (CONSTANT); }
-[1-9]{D}*{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.int_val = atoi(yytext);  return (CONSTANT); }
-L?'(\\.|[^\\'\n])+'	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.int_val = atoi(yytext);  return (CONSTANT); }
+0[xX]{H}+{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
+0[0-7]*{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
+[1-9]{D}*{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
+L?'(\\.|[^\\'\n])+'	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
 
 {D}+{E}{FS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
 {D}*"."{D}+{E}?{FS}?	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }

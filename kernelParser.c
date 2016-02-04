@@ -13,6 +13,236 @@ __inline__ void DebugAlignment(int align)
         printf("\t");
 }
 
+#if 0
+long GetIntValFromConstNode(Constant_node* node)
+{
+    if ((!node) || (!node->constant_type)) return 0;
+    else
+    {
+        OPENCL_DATA_TYPE type = node->constant_type->type;
+        if (type && CONST_SIGNED_INTEGER_MASK)
+            return node->value.long_val;
+        else if (type && CONST_UNSIGNED_INTEGER_MASK)
+            return (long)(node->value.ulong_val);
+        else if (type && CONST_FLOAT_MASK)
+            return (long)(node->value.double_val);
+        else
+        {
+            fprintf(stderr, "[Error] Cannot cast to long in %s\n", __func__);
+            return 0;
+        }
+    }
+}
+
+unsigned long GetUIntValFromConstNode(Constant_node* node)
+{
+    if ((!node) || (!node->constant_type)) return 0;
+    else
+    {
+        OPENCL_DATA_TYPE type = node->constant_type->type;
+        if (type && CONST_SIGNED_INTEGER_MASK)
+            return (unsigned long)(node->value.long_val);
+        else if (type && CONST_UNSIGNED_INTEGER_MASK)
+            return node->value.ulong_val;
+        else if (type && CONST_FLOAT_MASK)
+            return (unsigned long)(node->value.double_val);
+        else
+        {
+            fprintf(stderr, "[Error] Cannot cast to ulong in %s\n", __func__);
+            return 0;
+        }
+    }
+}
+
+double GetFloatValFromConstNode(Constant_node* node)
+{
+    if ((!node) || (!node->constant_type)) return 0;
+    else
+    {
+        OPENCL_DATA_TYPE type = node->constant_type->type;
+        if (type && CONST_SIGNED_INTEGER_MASK)
+            return (double)(node->value.long_val);
+        else if (type && CONST_UNSIGNED_INTEGER_MASK)
+            return (double)(node->value.ulong_val);
+        else if (type && CONST_FLOAT_MASK)
+            return node->value.double_val;
+        else
+        {
+            fprintf(stderr, "[Error] Cannot cast to double in %s\n", __func__);
+            return 0;
+        }
+    }
+}
+
+long ProcessIntArithmeticOP(long leftOperand, long rightOperand, EXPRESSION_KIND kind)
+{
+    if (kind && ARITHMETIC_OP_MASK)
+    {
+        long result;
+        switch (kind)
+        {
+    		case ADDITION_OP:
+				result = leftOperand + rightOperand;
+				break;
+    		case SUBTRACTION_OP:
+				result = leftOperand - rightOperand;
+				break;
+    		case MULTIPLICATION_OP:
+				result = leftOperand * rightOperand;
+				break;
+    		case DIVISION_OP:
+				result = leftOperand / rightOperand;
+				break;
+    		case MODULAR_OP:
+				result = leftOperand % rightOperand;
+				break;
+    		case POST_INCREASE_OP:
+				/* TODO */
+                break;
+    		case POST_DECREASE_OP:
+				/* TODO */
+				break;
+    		case PRE_INCREASE_OP:
+				result = leftOperand + 1;
+				break;
+    		case PRE_DECREASE_OP:
+				result = leftOperand - 1;
+				break;
+    		case SHIFT_LEFT_OP:
+				result = leftOperand << rightOperand;
+				break;
+    		case SHIFT_RIGHT_OP:
+				result = leftOperand >> rightOperand;
+				break;
+    		case BITWISE_AND_OP:
+				result = leftOperand & rightOperand;
+				break;
+    		case BITWISE_XOR_OP:
+				result = leftOperand ^ rightOperand;
+				break;
+    		case BITWISE_OR_OP:
+				result = leftOperand | rightOperand;
+				break;
+    		case MEMORY_OP:
+				/* TODO */
+                break;
+        }
+        return result;
+    }
+    else
+    {
+        fprintf(stderr, "[Error] Given argument is not a operation\n");
+        return 0;
+    }
+}
+
+unsigned long ProcessUIntArithmeticOP(unsigned long leftOperand, unsigned long rightOperand, EXPRESSION_KIND kind)
+{
+    if (kind && ARITHMETIC_OP_MASK)
+    {
+        unsigned long result;
+        switch (kind)
+        {
+    		case ADDITION_OP:
+				result = leftOperand + rightOperand;
+				break;
+    		case SUBTRACTION_OP:
+				result = leftOperand - rightOperand;
+				break;
+    		case MULTIPLICATION_OP:
+				result = leftOperand * rightOperand;
+				break;
+    		case DIVISION_OP:
+				result = leftOperand / rightOperand;
+				break;
+    		case MODULAR_OP:
+				result = leftOperand % rightOperand;
+				break;
+    		case POST_INCREASE_OP:
+				/* TODO */
+                break;
+    		case POST_DECREASE_OP:
+				/* TODO */
+				break;
+    		case PRE_INCREASE_OP:
+				result = leftOperand + 1;
+				break;
+    		case PRE_DECREASE_OP:
+				result = leftOperand - 1;
+				break;
+    		case SHIFT_LEFT_OP:
+				result = leftOperand << rightOperand;
+				break;
+    		case SHIFT_RIGHT_OP:
+				result = leftOperand >> rightOperand;
+				break;
+    		case BITWISE_AND_OP:
+				result = leftOperand & rightOperand;
+				break;
+    		case BITWISE_XOR_OP:
+				result = leftOperand ^ rightOperand;
+				break;
+    		case BITWISE_OR_OP:
+				result = leftOperand | rightOperand;
+				break;
+    		case MEMORY_OP:
+				/* TODO */
+                break;
+        }
+        return result;
+    }
+    else
+    {
+        fprintf(stderr, "[Error] Given argument is not a operation\n");
+        return 0;
+    }
+}
+
+double ProcessFloatArithmeticOP(double leftOperand, double rightOperand, EXPRESSION_KIND kind)
+{
+    if (kind && ARITHMETIC_OP_MASK)
+    {
+        double result;
+        switch (kind)
+        {
+    		case ADDITION_OP:
+				result = leftOperand + rightOperand;
+				break;
+    		case SUBTRACTION_OP:
+				result = leftOperand - rightOperand;
+				break;
+    		case MULTIPLICATION_OP:
+				result = leftOperand * rightOperand;
+				break;
+    		case DIVISION_OP:
+				result = leftOperand / rightOperand;
+				break;
+    		case POST_INCREASE_OP:
+				/* TODO */
+                break;
+    		case POST_DECREASE_OP:
+				/* TODO */
+				break;
+    		case PRE_INCREASE_OP:
+				result = leftOperand + 1;
+				break;
+    		case PRE_DECREASE_OP:
+				result = leftOperand - 1;
+				break;
+    		case MEMORY_OP:
+				/* TODO */
+                break;
+        }
+        return result;
+    }
+    else
+    {
+        fprintf(stderr, "[Error] Given argument is not a operation\n");
+        return 0;
+    }
+}
+#endif
+
 void DebugProgramNode(Program_node* prog)
 {
     if (!prog) return;
@@ -288,8 +518,10 @@ void DebugExprNode(Expression_node* node, int align)
     if (!node) return;
     else
     {
-        if (node->expression_kind & EXPRESSION_BASE)
+        if (node->expression_kind & EXPRESSION_MASK)
         {
+            DebugExprNode(node->left_operand, align);
+            DebugExprNode(node->right_operand, align);
             switch (node->expression_kind)
             {
                 case EXPRESSION_IDENTIFIER:
@@ -326,7 +558,7 @@ void DebugExprNode(Expression_node* node, int align)
                     break;
             }
         }
-        else if (node->expression_kind & ASSIGNMENT_BASE)
+        else if (node->expression_kind & ASSIGNMENT_MASK)
         {
             char op_name[30];
             DebugExprKind(node->expression_kind, op_name);
@@ -339,12 +571,12 @@ void DebugExprNode(Expression_node* node, int align)
             printf("[rvalue]\n");
             DebugExprNode(node->right_operand, align+1);
         }
-        else // OP_BASE
+        else // OP_MASK
         {
             char op_name[30];
-            DebugExprKind(node->expression_kind, op_name);
             DebugExprNode(node->left_operand, align);
             DebugExprNode(node->right_operand, align);
+            DebugExprKind(node->expression_kind, op_name);
             DebugAlignment(align);
             printf("%s\n", op_name);
         }
@@ -806,6 +1038,8 @@ void DebugConstantNode(Constant_node* node, int align)
     if (!node) return;
     else
     {
+        OPENCL_DATA_TYPE currType;
+
         if (node->constant_type->array_desc_head != NULL)
             fprintf(stderr, "[Error] Invalid array desc in %s\n", __func__);
         if (node->constant_type->kind != TYPE_WITHOUT_PARAM)
@@ -813,28 +1047,15 @@ void DebugConstantNode(Constant_node* node, int align)
         DebugAlignment(align);
         printf("[Constant] ");
 
-        switch (node->constant_type->type)
-        {
-            case INT_TYPE:
-                printf("%d\n", node->value.int_val);
-                break;
-            case UINT_TYPE:
-                printf("%u\n", node->value.uint_val);
-                break;
-            case LONG_TYPE:
-                printf("%ld\n", node->value.long_val);
-                break;
-            case ULONG_TYPE:
-                printf("%lu\n", node->value.ulong_val);
-                break;
-            case FLOAT_TYPE:
-                printf("%f\n", node->value.float_val);
-                break;
-            case DOUBLE_TYPE:
-                printf("%lf\n", node->value.double_val);
-                break;
-            /* TODO vector type constant */
-        }
+        currType = node->constant_type->type;
+        if (currType & CONST_SIGNED_INTEGER_MASK)
+            printf("%ld\n", node->value.long_val);
+        else if (currType & CONST_UNSIGNED_INTEGER_MASK)
+            printf("%lu\n", node->value.ulong_val);
+        else if (currType & CONST_FLOAT_MASK)
+            printf("%lf\n", node->value.double_val);
+
+        /* TODO vector type constant */
     }
 }
 

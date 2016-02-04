@@ -67,6 +67,7 @@ void AddFuncNodeToProgram(Program_node*, Function_node*);
 void AddDeclNodeToProgram(Program_node*, Declaration_node*);
 Program_node* CreateProgramNode(void);
 
+/* Visualizing the AST */
 void DebugProgramNode(Program_node*);
 void DebugFuncNode(Function_node*);
 void DebugCompoundStmt(CompoundStatement*, int);
@@ -85,60 +86,73 @@ void DebugConstantNode(Constant_node*, int);
 void DebugFunctionInvocationNode(FunctionInvocation_node*, int);
 TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor*, TypeDescriptor*);
 
+#if 0
+long GetIntValFromConstNode(Constant_node*);
+unsigned long GetUIntValFromConstNode(Constant_node*);
+double GetFloatValFromConstNode(Constant_node*);
+long ProcessIntVal(long, long, EXPRESSION_KIND);
+unsigned long ProcessUIntVal(unsigned long, unsigned long, EXPRESSION_KIND);
+double ProcessFloatVal(double, double, EXPRESSION_KIND);
+#endif
+
 enum OPENCL_DATA_TYPE
 {
     NONE_TYPE = 0x0,
     STRUCT_TYPE,
     UNION_TYPE,
     VOID_TYPE,
-    BOOL_TYPE = 0x1000,
-    HALF_TYPE,
+    CONST_SIGNED_INTEGER_MASK = 0x1000,
+    BOOL_TYPE,
     CHAR_TYPE,
+    SHORT_TYPE,
+    INT_TYPE,
+    LONG_TYPE,
+    CONST_UNSIGNED_INTEGER_MASK = 0x2000,
+    UCHAR_TYPE,
+    USHORT_TYPE,
+    UINT_TYPE,
+    ULONG_TYPE,
+    CONST_FLOAT_MASK = 0x4000,
+    HALF_TYPE,
+    FLOAT_TYPE,
+    DOUBLE_TYPE,
+    CONST_OTHER_MASK = 0x8000,
     CHAR2_TYPE,
     CHAR4_TYPE,
     CHAR8_TYPE,
     CHAR16_TYPE,
-    UCHAR_TYPE,
     UCHAR2_TYPE,
     UCHAR4_TYPE,
     UCHAR8_TYPE,
     UCHAR16_TYPE,
-    SHORT_TYPE,
     SHORT2_TYPE,
     SHORT4_TYPE,
     SHORT8_TYPE,
     SHORT16_TYPE,
-    USHORT_TYPE,
     USHORT2_TYPE,
     USHORT4_TYPE,
     USHORT8_TYPE,
     USHORT16_TYPE,
-    INT_TYPE,
     INT2_TYPE,
     INT4_TYPE,
     INT8_TYPE,
     INT16_TYPE,
-    UINT_TYPE,
     UINT2_TYPE,
     UINT4_TYPE,
     UINT8_TYPE,
     UINT16_TYPE,
-    LONG_TYPE,
     LONG2_TYPE,
     LONG4_TYPE,
     LONG8_TYPE,
     LONG16_TYPE,
-    ULONG_TYPE,
     ULONG2_TYPE,
     ULONG4_TYPE,
     ULONG8_TYPE,
     ULONG16_TYPE,
-    FLOAT_TYPE = 0x2000,
     FLOAT2_TYPE,
     FLOAT4_TYPE,
     FLOAT8_TYPE,
     FLOAT16_TYPE,
-    DOUBLE_TYPE,
     DOUBLE2_TYPE,
     DOUBLE4_TYPE,
     DOUBLE8_TYPE,
@@ -147,7 +161,7 @@ enum OPENCL_DATA_TYPE
 
 enum EXPRESSION_KIND
 {
-    OP_BASE = 0x1000,
+    ARITHMETIC_OP_MASK = 0x1000,
     NONE_OP,
     ADDITION_OP,
     SUBTRACTION_OP,
@@ -160,20 +174,22 @@ enum EXPRESSION_KIND
     PRE_DECREASE_OP,
     SHIFT_LEFT_OP,
     SHIFT_RIGHT_OP,
+    BITWISE_AND_OP,
+    BITWISE_XOR_OP,
+    BITWISE_OR_OP,
+    MEMORY_OP,
+
+    LOGICAL_OP_MASK = 0x2000,
     LESS_OP,
     LESS_EQUAL_OP,
     GREATER_OP,
     GREATER_EQUAL_OP,
     EQUAL_OP,
     NOT_EQUAL_OP,
-    BITWISE_AND_OP,
-    BITWISE_XOR_OP,
-    BITWISE_OR_OP,
     LOGICAL_AND_OP,
     LOGICAL_OR_OP,
-    MEMORY_OP,
 
-    EXPRESSION_BASE = 0x2000,
+    EXPRESSION_MASK = 0x4000,
     EXPRESSION_IDENTIFIER,
     EXPRESSION_CONSTANT,
     EXPRESSION_SUBSCRIPT,
@@ -182,7 +198,7 @@ enum EXPRESSION_KIND
     EXPRESSION_TYPECAST,
     EXPRESSION_EXPRSTMT,
 
-    ASSIGNMENT_BASE = 0x4000,
+    ASSIGNMENT_MASK = 0x8000,
     ASSIGNMENT_NONE,
     ASSIGNMENT_MUL,
     ASSIGNMENT_DIV,
@@ -432,11 +448,8 @@ struct Constant_node
     TypeDescriptor* constant_type;
     union
     {
-        int int_val;
-        unsigned uint_val;
         long long_val;
         unsigned long ulong_val;
-        float float_val;
         double double_val;
         /* TODO vector type constant */
     } value;

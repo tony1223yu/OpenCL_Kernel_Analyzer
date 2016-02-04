@@ -104,10 +104,9 @@ Expression_node* CreateNormalExprNode(EXPRESSION_KIND kind, Expression_node* lef
     ret->right_operand = right;
     ret->next = NULL;
 
-    // TODO: constant folding
-
     /* set the content of the union space to 0 */
     ret->direct_expr.identifier = NULL;
+    return ret;
 }
 
 FunctionInvocation_node* CreateFunctionInvocation_node(char* function_name, Expression_node_list* arguments)
@@ -273,18 +272,9 @@ Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Para
     currType = decl_desc->identifier_type;
     if (currType == NULL)
     {
-        ret->identifier_type = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
-        ret->identifier_type->type = NONE_TYPE;
+        ret->identifier_type = CreateScalarTypeDesc(NONE_TYPE);
         ret->identifier_type->kind = TYPE_WITH_PARAM;
-        ret->identifier_type->struct_name = NULL;
-        ret->identifier_type->array_desc_head = NULL;
-        ret->identifier_type->array_desc_tail = NULL;
-        if (param_node_list == NULL)
-        {
-            ret->identifier_type->parameter_head = NULL;
-            ret->identifier_type->parameter_tail = NULL;
-        }
-        else
+        if (param_node_list != NULL)
         {
             ret->identifier_type->parameter_head = param_node_list->parameter_head;
             ret->identifier_type->parameter_tail = param_node_list->parameter_tail;
@@ -330,89 +320,89 @@ Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Para
 
 Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node* decl_desc, ArrayDesc_node* array_desc)
 {
-    Declaration_desc_node* ret;
-    TypeDescriptor* currType;
-
-    if (decl_desc == NULL)
-    {
-        // Abstract declaration descriptor
-        ret = CreateDeclDescNode(NULL);
-    }
+    if (array_desc == NULL)
+        return decl_desc;
     else
     {
-        ret = decl_desc;
-    }
+        Declaration_desc_node* ret;
+        TypeDescriptor* currType;
 
-    currType = ret->identifier_type;
-    if (currType == NULL)
-    {
-        ret->identifier_type = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
-        ret->identifier_type->type = NONE_TYPE;
-        ret->identifier_type->kind = TYPE_WITHOUT_PARAM;
-        ret->identifier_type->struct_name = NULL;
-        ret->identifier_type->array_desc_head = array_desc;
-        ret->identifier_type->array_desc_tail = array_desc;
-        ret->identifier_type->parameter_head = NULL;
-        ret->identifier_type->parameter_tail = NULL;
-    }
-    else
-    {
-        if (currType->array_desc_tail == NULL)
+        if (decl_desc == NULL)
         {
-            currType->array_desc_head = array_desc;
-            currType->array_desc_tail = array_desc;
+            // Abstract declaration descriptor
+            ret = CreateDeclDescNode(NULL);
         }
         else
         {
-            currType->array_desc_tail->next = array_desc;
-            currType->array_desc_tail = array_desc;
+            ret = decl_desc;
         }
+
+        currType = ret->identifier_type;
+        if (currType == NULL)
+        {
+            ret->identifier_type = CreateScalarTypeDesc(NONE_TYPE);
+            ret->identifier_type->array_desc_head = array_desc;
+            ret->identifier_type->array_desc_tail = array_desc;
+        }
+        else
+        {
+            if (currType->array_desc_tail == NULL)
+            {
+                currType->array_desc_head = array_desc;
+                currType->array_desc_tail = array_desc;
+            }
+            else
+            {
+                currType->array_desc_tail->next = array_desc;
+                currType->array_desc_tail = array_desc;
+            }
+        }
+        return ret;
     }
-    return ret;
 }
 
 Declaration_desc_node* AddArrayDescListToDeclDesc(Declaration_desc_node* decl_desc, ArrayDesc_node_list* array_desc_list)
 {
-    Declaration_desc_node* ret;
-    TypeDescriptor* currType;
-
-    if (decl_desc == NULL)
-    {
-        // Abstract declaration descriptor
-        ret = CreateDeclDescNode(NULL);
-    }
+    if (array_desc_list == NULL)
+        return decl_desc;
     else
     {
-        ret = decl_desc;
-    }
+        Declaration_desc_node* ret;
+        TypeDescriptor* currType;
 
-    currType = ret->identifier_type;
-    if (currType == NULL)
-    {
-        ret->identifier_type = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
-        ret->identifier_type->type = NONE_TYPE;
-        ret->identifier_type->kind = TYPE_WITHOUT_PARAM;
-        ret->identifier_type->struct_name = NULL;
-        ret->identifier_type->array_desc_head = array_desc_list->array_desc_head;
-        ret->identifier_type->array_desc_tail = array_desc_list->array_desc_tail;
-        ret->identifier_type->parameter_head = NULL;
-        ret->identifier_type->parameter_tail = NULL;
-    }
-    else
-    {
-        if (currType->array_desc_tail == NULL)
+        if (decl_desc == NULL)
         {
-            currType->array_desc_head = array_desc_list->array_desc_head;
-            currType->array_desc_tail = array_desc_list->array_desc_tail;
+            // Abstract declaration descriptor
+            ret = CreateDeclDescNode(NULL);
         }
         else
         {
-            currType->array_desc_tail->next = array_desc_list->array_desc_head;
-            currType->array_desc_tail = array_desc_list->array_desc_tail;
+            ret = decl_desc;
         }
+
+        currType = ret->identifier_type;
+        if (currType == NULL)
+        {
+            ret->identifier_type = CreateScalarTypeDesc(NONE_TYPE);
+            ret->identifier_type->array_desc_head = array_desc_list->array_desc_head;
+            ret->identifier_type->array_desc_tail = array_desc_list->array_desc_tail;
+        }
+        else
+        {
+            if (currType->array_desc_tail == NULL)
+            {
+                currType->array_desc_head = array_desc_list->array_desc_head;
+                currType->array_desc_tail = array_desc_list->array_desc_tail;
+            }
+            else
+            {
+                currType->array_desc_tail->next = array_desc_list->array_desc_head;
+                currType->array_desc_tail = array_desc_list->array_desc_tail;
+            }
+        }
+        free (array_desc_list);
+        return ret;
     }
-    free (array_desc_list);
-    return ret;
 }
 
 // Note that the space of returnValue should be allocated by caller
@@ -424,30 +414,19 @@ void GetUlongValueInExprNode(Expression_node* expr_node, unsigned long* returnVa
     else
     {
         Constant_node* node = expr_node->direct_expr.constant;
+        OPENCL_DATA_TYPE currType;
         if (node->constant_type->kind != TYPE_WITHOUT_PARAM)
             fprintf(stderr, "[Error] Invalid type of constant in %s\n", __func__);
         if (node->constant_type->array_desc_head != NULL)
             fprintf(stderr, "[Error] Invalid type of constant in %s\n", __func__);
 
-        switch (node->constant_type->type)
-        {
-            case INT_TYPE:
-                *returnValue = (unsigned long)(node->value.int_val);
-                break;
-            case UINT_TYPE:
-                *returnValue = (unsigned long)(node->value.uint_val);
-                break;
-            case LONG_TYPE:
-                *returnValue = (unsigned long)(node->value.long_val);
-                break;
-            case ULONG_TYPE:
-                *returnValue = (unsigned long)(node->value.ulong_val);
-                break;
-            case FLOAT_TYPE:
-            case DOUBLE_TYPE:
-                fprintf(stderr, "[Error] Invalid type of constant in %s\n", __func__);
-                break;
-        }
+        currType = node->constant_type->type;
+        if (currType & CONST_UNSIGNED_INTEGER_MASK)
+            *returnValue = (unsigned long)(node->value.ulong_val);
+        else if (currType & CONST_SIGNED_INTEGER_MASK)
+            *returnValue = (unsigned long)(node->value.long_val);
+        else
+            fprintf(stderr, "[Error] Invalid type of constant in %s\n", __func__);
     }
 }
 
