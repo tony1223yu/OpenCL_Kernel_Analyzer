@@ -482,55 +482,80 @@ TypeDescriptor* CreateScalarTypeDesc(OPENCL_DATA_TYPE type, char* struct_name)
     return ret;
 }
 
-TypeDescriptor* MergeTypeDesc(TypeDescriptor* left, TypeDescriptor* right)
+TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right)
 {
+    TypeDescriptor* ret = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
+
     if ((left == NULL) && (right == NULL))
-        return NULL;
+    {
+        fprintf(stderr, "[Error] Both type descriptor are NULL\n");
+    }
     else if (left == NULL)
-        return right;
+    {
+        ret->type = right->type;
+        ret->struct_name = right->struct_name;
+        ret->array_desc_head = right->array_desc_head;
+        ret->array_desc_tail = right->array_desc_tail;
+        ret->parameter_head = right->parameter_head;
+        ret->parameter_tail = right->parameter_tail;
+        ret->kind = right->kind;
+    }
     else if (right == NULL)
-        return left;
+    {
+        ret->type = left->type;
+        ret->struct_name = left->struct_name;
+        ret->array_desc_head = left->array_desc_head;
+        ret->array_desc_tail = left->array_desc_tail;
+        ret->parameter_head = left->parameter_head;
+        ret->parameter_tail = left->parameter_tail;
+        ret->kind = left->kind;
+    }
     else
     {
-        if ((right->type != NONE_TYPE) || (right->struct_name != NULL))
-        {
-            fprintf(stderr, "[Error] Right type descriptor cannot be merged in %s\n", __func__);
-        }
+        /* should be left */
+        ret->type = left->type;
+        ret->struct_name = left->struct_name;
 
-        // right->type should always be NONE_TYPE. That is, it only consists of parameter and array information.
-        if (right->array_desc_head != NULL)
+        ret->array_desc_head = right->array_desc_head;
+        ret->array_desc_tail = right->array_desc_tail;
+
+        if (left->array_desc_head != NULL)
         {
-            if (left->array_desc_head != NULL)
+            if (ret->array_desc_head != NULL)
             {
-                right->array_desc_tail->next = left->array_desc_head;
-                left->array_desc_head = right->array_desc_head;
+                ret->array_desc_tail->next = left->array_desc_head;
+                ret->array_desc_tail = left->array_desc_tail;
             }
             else
             {
-                left->array_desc_head = right->array_desc_head;
-                left->array_desc_tail = right->array_desc_tail;
+                ret->array_desc_head = left->array_desc_head;
+                ret->array_desc_tail = left->array_desc_tail;
             }
         }
 
-        left->kind = right->kind;
-
-        if (right->kind == TYPE_WITH_PARAM)
+        if ((left->kind == TYPE_WITH_PARAM) && (right->kind == TYPE_WITH_PARAM))
         {
-            if (left->kind == TYPE_WITH_PARAM)
-            {
-                fprintf(stderr, "[Error] Redefined parameters in %s", __func__);
-            }
-            else
-            {
-                left->kind = TYPE_WITH_PARAM;
-                left->parameter_head = right->parameter_head;
-                left->parameter_tail = right->parameter_tail;
-            }
+            fprintf(stderr, "[Error] Redefined parameters in %s", __func__);
         }
-
-        free (right);
-        return left;
+        else if (left->kind == TYPE_WITH_PARAM)
+        {
+            ret->kind = TYPE_WITH_PARAM;
+            ret->parameter_head = left->parameter_head;
+            ret->parameter_tail = left->parameter_tail;
+        }
+        else if (right->kind == TYPE_WITH_PARAM)
+        {
+            ret->kind = TYPE_WITH_PARAM;
+            ret->parameter_head = right->parameter_head;
+            ret->parameter_tail = right->parameter_tail;
+        }
+        else
+        {
+            ret->parameter_head = NULL;
+            ret->parameter_tail = NULL;
+        }
     }
+    return ret;
 }
 
 Constant_node* CreateEmptyConstantNode(void)
@@ -685,8 +710,8 @@ Function_node* CreateFunctionNode(TypeDescriptor* type, Declaration_desc_node* d
         decl_desc->identifier_type->parameter_tail = NULL;
         decl_desc->identifier_type->kind = TYPE_WITHOUT_PARAM;
 
-        // this would free decl_desc->identifier_type
-        ret->return_type = MergeTypeDesc(type, decl_desc->identifier_type);
+        ret->return_type = MixAndCreateTypeDesc(type, decl_desc->identifier_type);
+        free (type);
         free (decl_desc);
     }
     ret->content_statement = compound_stmt;
@@ -753,6 +778,194 @@ void AddStructDeclNode(Program_node* prog, char* name, Declaration_node_list* me
     }
 }
 
+TypeName_node* CreateTypeNameNode(char* name, TypeDescriptor* type)
+{
+    TypeName_node* ret = (TypeName_node*) malloc(sizeof(TypeName_node));
+    ret->identifier_name = name;
+    ret->identifier_type = type;
+    return ret;
+}
+
+void AddToTypeTable(TypeNameTable* table, TypeDescriptor* type, Declaration_desc_node_list* node_list)
+{
+    if (node_list == NULL)
+        return;
+    else
+    {
+        Declaration_desc_node* iterNode = node_list->declaration_desc_head;
+        while (iterNode != NULL)
+        {
+            TypeDescriptor* mix_type = MixAndCreateTypeDesc(type, iterNode->identifier_type);
+            TypeName_node* new_node = CreateTypeNameNode(iterNode->identifier_name, mix_type);
+            if (table == NULL)
+            {
+                fprintf(stderr, "[Error] Type name table is NULL in %s\n", __func__);
+            }
+            else
+            {
+                if (table->type_node_head == NULL)
+                {
+                    table->type_node_head = new_node;
+                    table->type_node_tail = new_node;
+                }
+                else
+                {
+                    table->type_node_tail->next = new_node;
+                    table->type_node_tail = new_node;
+                }
+            }
+            iterNode = iterNode->next;
+        }
+    }
+}
+
+TypeDescriptor* DuplicateTypeDesc(TypeDescriptor* type)
+{
+    if (type == NULL)
+        return NULL;
+    else
+    {
+        TypeDescriptor* ret = CreateScalarTypeDesc(type->type, NULL);
+        ret->kind = type->kind;
+
+        if (type->struct_name != NULL)
+            ret->struct_name = strdup(type->struct_name);
+
+        if (type->array_desc_head != NULL)
+        {
+            ArrayDesc_node* iterArray = type->array_desc_head;
+            while (iterArray != NULL)
+            {
+                ArrayDesc_node* tmp = DuplicateArrayDesc(iterArray);
+                if (ret->array_desc_head == NULL)
+                {
+                    ret->array_desc_head = tmp;
+                    ret->array_desc_tail = tmp;
+                }
+                else
+                {
+                    ret->array_desc_tail->next = tmp;
+                    ret->array_desc_tail = tmp;
+                }
+                iterArray = iterArray->next;
+            }
+        }
+
+        if (type->parameter_head != NULL)
+        {
+            Parameter_node* iterParam = type->parameter_head;
+            while (iterParam != NULL)
+            {
+                Parameter_node* tmp = DuplicateParamNode(iterParam);
+                if (ret->parameter_head == NULL)
+                {
+                    ret->parameter_head = tmp;
+                    ret->parameter_tail = tmp;
+                }
+                else
+                {
+                    ret->parameter_tail->next = tmp;
+                    ret->parameter_tail = tmp;
+                }
+                iterParam = iterParam->next;
+            }
+        }
+
+        return ret;
+    }
+}
+
+ArrayDesc_node* DuplicateArrayDesc(ArrayDesc_node* array)
+{
+    if (array == NULL)
+        return NULL;
+    else
+    {
+        ArrayDesc_node* ret = (ArrayDesc_node*) malloc(sizeof(ArrayDesc_node));
+        ret->size = array->size;
+        ret->desc_kind = array->desc_kind;
+
+        if (array->parameter_head != NULL)
+        {
+            Parameter_node* iterParam = array->parameter_head;
+            while (iterParam != NULL)
+            {
+                Parameter_node* tmp = DuplicateParamNode(iterParam);
+                if (ret->parameter_head == NULL)
+                {
+                    ret->parameter_head = tmp;
+                    ret->parameter_tail = tmp;
+                }
+                else
+                {
+                    ret->parameter_tail->next = tmp;
+                    ret->parameter_tail = tmp;
+                }
+                iterParam = iterParam->next;
+            }
+        }
+
+        return ret;
+    }
+}
+
+Parameter_node* DuplicateParamNode(Parameter_node* param)
+{
+    if (param == NULL)
+        return NULL;
+    else
+    {
+        Parameter_node* ret = (Parameter_node*) malloc(sizeof(Parameter_node));
+        ret->parameter_type = DuplicateTypeDesc(param->parameter_type);
+        ret->parameter_desc = DuplicateDeclDescNode(param->parameter_desc);
+        return ret;
+    }
+}
+
+Declaration_desc_node* DuplicateDeclDescNode(Declaration_desc_node* desc)
+{
+    if (desc == NULL)
+        return NULL;
+    else
+    {
+        Declaration_desc_node* ret = (Declaration_desc_node*) malloc(sizeof(Declaration_desc_node));
+
+        if (desc->identifier_name != NULL)
+            ret->identifier_name = strdup(desc->identifier_name);
+
+        ret->identifier_type = DuplicateTypeDesc(desc->identifier_type);
+
+        // TODO
+        if (desc->init_expression != NULL)
+            fprintf(stderr, "[Error] Cannot duplicate declaration node with initial expression\n");
+        else
+            ret->init_expression = NULL;
+
+        return ret;
+    }
+}
+
+TypeDescriptor* CheckTypeNameTable(TypeNameTable* table, char* name)
+{
+    TypeName_node* iter_node = table->type_node_head;
+    while (iter_node != NULL)
+    {
+        if (strcmp(iter_node->identifier_name, name) == 0)
+            return DuplicateTypeDesc(iter_node->identifier_type);
+        else
+            iter_node = iter_node -> next;
+    }
+    return NULL;
+}
+
+TypeNameTable* CreateTypeNameTable(void)
+{
+    TypeNameTable* ret = (TypeNameTable*) malloc(sizeof(TypeNameTable));
+    ret->type_node_head = NULL;
+    ret->type_node_tail = NULL;
+    return ret;
+}
+
 #if 0
 void DeleteTypeDesc(TypeDescriptor* type)
 {
@@ -808,8 +1021,7 @@ void DeleteTypeDesc(TypeDescriptor* type)
 
 %token KERNEL ADDRESS_GLOBAL ADDRESS_LOCAL ADDRESS_PRIVATE ADDRESS_CONSTANT DEFINE
 
-%token TYPE_NAME
-%token <type_desc_node> OPENCL_TYPE
+%token <type_desc_node> OPENCL_TYPE TYPE_NAME
 %token <const_node> CONSTANT
 %token <ptr> IDENTIFIER
 %token STRING_LITERAL SIZEOF
@@ -1096,6 +1308,7 @@ declaration
     }
     | TYPEDEF declaration_specifiers init_declarator_list ';'
     {
+        AddToTypeTable(typeTable, $2, $3);
         $$ = NULL;
     }
 	;
@@ -1149,7 +1362,7 @@ type_specifier
     }
     | TYPE_NAME
     {
-        // TODO: SymbolTable
+        $$ = $1;
     }
 	| OPENCL_TYPE
     {

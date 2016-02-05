@@ -584,294 +584,228 @@ void DebugTypeDesc(TypeDescriptor* type, char* name)
     if (!type) return;
     else
     {
+        ArrayDesc_node* iterArray = type->array_desc_head;
         strcpy(name, "");
-        if (type->parameter_head != NULL)
-            fprintf(stderr, "[Error] Given type descriptor is a function definition in %s\n", __func__);
-        else
+
+        while (iterArray)
         {
-            ArrayDesc_node* iterArray = type->array_desc_head;
-            while (iterArray)
+            if (iterArray->desc_kind == ARRAY_DESC_POINTER)
             {
-                if (iterArray->desc_kind == ARRAY_DESC_POINTER)
-                {
-                    strcat(name, "Pointer to ");
-                }
-                else if (iterArray->desc_kind == ARRAY_DESC_ARRAY)
-                {
-                    char tmp[50];
-                    if (iterArray->size != 0)
-                        sprintf(tmp, "Array (%lu) of ", iterArray->size);
-                    else
-                        sprintf(tmp, "Array (*) of ");
-                    strcat(name, tmp);
-                }
+                strcat(name, "Pointer to ");
+            }
+            else if (iterArray->desc_kind == ARRAY_DESC_ARRAY)
+            {
+                char tmp[50];
+                if (iterArray->size != 0)
+                    sprintf(tmp, "Array (%lu) of ", iterArray->size);
                 else
-                {
-                    int parameterCount = 0;
-                    char tmp[100];
-                    Parameter_node* iterParam = iterArray->parameter_head;
-                    while (iterParam)
-                    {
-                        parameterCount ++;
-                        iterParam = iterParam->next;
-                    }
-                    sprintf(tmp, "Function pointer that takes %d arguments and returns ", parameterCount);
-                    strcat(name, tmp);
-                }
-                iterArray = iterArray->next;
-            }
-
-            switch (type->type)
-            {
-                char tmpName[50];
-    			case NONE_TYPE:
-					strcat(name, "NONE_TYPE");
-					break;
-    			case STRUCT_TYPE:
-                    sprintf(tmpName, "STRUCT_TYPE (%s)", type->struct_name);
-					strcat(name, tmpName);
-					break;
-    			case UNION_TYPE:
-					strcat(name, "UNION_TYPE");
-					break;
-    			case BOOL_TYPE:
-					strcat(name, "BOOL_TYPE");
-					break;
-    			case HALF_TYPE:
-					strcat(name, "HALF_TYPE");
-					break;
-    			case VOID_TYPE:
-					strcat(name, "VOID_TYPE");
-					break;
-    			case CHAR_TYPE:
-					strcat(name, "CHAR_TYPE");
-					break;
-    			case CHAR2_TYPE:
-					strcat(name, "CHAR2_TYPE");
-					break;
-    			case CHAR4_TYPE:
-					strcat(name, "CHAR4_TYPE");
-					break;
-    			case CHAR8_TYPE:
-					strcat(name, "CHAR8_TYPE");
-					break;
-    			case CHAR16_TYPE:
-					strcat(name, "CHAR16_TYPE");
-					break;
-    			case UCHAR_TYPE:
-					strcat(name, "UCHAR_TYPE");
-					break;
-    			case UCHAR2_TYPE:
-					strcat(name, "UCHAR2_TYPE");
-					break;
-    			case UCHAR4_TYPE:
-					strcat(name, "UCHAR4_TYPE");
-					break;
-    			case UCHAR8_TYPE:
-					strcat(name, "UCHAR8_TYPE");
-					break;
-    			case UCHAR16_TYPE:
-					strcat(name, "UCHAR16_TYPE");
-					break;
-    			case SHORT_TYPE:
-					strcat(name, "SHORT_TYPE");
-					break;
-    			case SHORT2_TYPE:
-					strcat(name, "SHORT2_TYPE");
-					break;
-    			case SHORT4_TYPE:
-					strcat(name, "SHORT4_TYPE");
-					break;
-    			case SHORT8_TYPE:
-					strcat(name, "SHORT8_TYPE");
-					break;
-    			case SHORT16_TYPE:
-					strcat(name, "SHORT16_TYPE");
-					break;
-    			case USHORT_TYPE:
-					strcat(name, "USHORT_TYPE");
-					break;
-    			case USHORT2_TYPE:
-					strcat(name, "USHORT2_TYPE");
-					break;
-    			case USHORT4_TYPE:
-					strcat(name, "USHORT4_TYPE");
-					break;
-    			case USHORT8_TYPE:
-					strcat(name, "USHORT8_TYPE");
-					break;
-    			case USHORT16_TYPE:
-					strcat(name, "USHORT16_TYPE");
-					break;
-    			case INT_TYPE:
-					strcat(name, "INT_TYPE");
-					break;
-    			case INT2_TYPE:
-					strcat(name, "INT2_TYPE");
-					break;
-    			case INT4_TYPE:
-					strcat(name, "INT4_TYPE");
-					break;
-    			case INT8_TYPE:
-					strcat(name, "INT8_TYPE");
-					break;
-    			case INT16_TYPE:
-					strcat(name, "INT16_TYPE");
-					break;
-    			case UINT_TYPE:
-					strcat(name, "UINT_TYPE");
-					break;
-    			case UINT2_TYPE:
-					strcat(name, "UINT2_TYPE");
-					break;
-    			case UINT4_TYPE:
-					strcat(name, "UINT4_TYPE");
-					break;
-    			case UINT8_TYPE:
-					strcat(name, "UINT8_TYPE");
-					break;
-    			case UINT16_TYPE:
-					strcat(name, "UINT16_TYPE");
-					break;
-    			case LONG_TYPE:
-					strcat(name, "LONG_TYPE");
-					break;
-    			case LONG2_TYPE:
-					strcat(name, "LONG2_TYPE");
-					break;
-    			case LONG4_TYPE:
-					strcat(name, "LONG4_TYPE");
-					break;
-    			case LONG8_TYPE:
-					strcat(name, "LONG8_TYPE");
-					break;
-    			case LONG16_TYPE:
-					strcat(name, "LONG16_TYPE");
-					break;
-    			case ULONG_TYPE:
-					strcat(name, "ULONG_TYPE");
-					break;
-    			case ULONG2_TYPE:
-					strcat(name, "ULONG2_TYPE");
-					break;
-    			case ULONG4_TYPE:
-					strcat(name, "ULONG4_TYPE");
-					break;
-    			case ULONG8_TYPE:
-					strcat(name, "ULONG8_TYPE");
-					break;
-    			case ULONG16_TYPE:
-					strcat(name, "ULONG16_TYPE");
-					break;
-    			case FLOAT_TYPE:
-					strcat(name, "FLOAT_TYPE");
-					break;
-    			case FLOAT2_TYPE:
-					strcat(name, "FLOAT2_TYPE");
-					break;
-    			case FLOAT4_TYPE:
-					strcat(name, "FLOAT4_TYPE");
-					break;
-    			case FLOAT8_TYPE:
-					strcat(name, "FLOAT8_TYPE");
-					break;
-    			case FLOAT16_TYPE:
-					strcat(name, "FLOAT16_TYPE");
-					break;
-    			case DOUBLE_TYPE:
-					strcat(name, "DOUBLE_TYPE");
-					break;
-    			case DOUBLE2_TYPE:
-					strcat(name, "DOUBLE2_TYPE");
-					break;
-    			case DOUBLE4_TYPE:
-					strcat(name, "DOUBLE4_TYPE");
-					break;
-    			case DOUBLE8_TYPE:
-					strcat(name, "DOUBLE8_TYPE");
-					break;
-    			case DOUBLE16_TYPE:
-					strcat(name, "DOUBLE16_TYPE");
-					break;
-            }
-        }
-    }
-}
-
-TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right)
-{
-    TypeDescriptor* ret = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
-
-    if ((left == NULL) && (right == NULL))
-    {
-        fprintf(stderr, "[Error] Both type descriptor are NULL\n");
-    }
-    else if (left == NULL)
-    {
-        ret->type = right->type;
-        ret->struct_name = right->struct_name;
-        ret->array_desc_head = right->array_desc_head;
-        ret->array_desc_tail = right->array_desc_tail;
-        ret->parameter_head = right->parameter_head;
-        ret->parameter_tail = right->parameter_tail;
-        ret->kind = right->kind;
-    }
-    else if (right == NULL)
-    {
-        ret->type = left->type;
-        ret->struct_name = left->struct_name;
-        ret->array_desc_head = left->array_desc_head;
-        ret->array_desc_tail = left->array_desc_tail;
-        ret->parameter_head = left->parameter_head;
-        ret->parameter_tail = left->parameter_tail;
-        ret->kind = left->kind;
-    }
-    else
-    {
-        /* should be left */
-        ret->type = left->type;
-        ret->struct_name = left->struct_name;
-
-        ret->array_desc_head = right->array_desc_head;
-        ret->array_desc_tail = right->array_desc_tail;
-
-        if (left->array_desc_head != NULL)
-        {
-            if (ret->array_desc_head != NULL)
-            {
-                ret->array_desc_tail->next = left->array_desc_head;
-                ret->array_desc_tail = left->array_desc_tail;
+                    sprintf(tmp, "Array (*) of ");
+                strcat(name, tmp);
             }
             else
             {
-                ret->array_desc_head = left->array_desc_head;
-                ret->array_desc_tail = left->array_desc_tail;
+                int parameterCount = 0;
+                char tmp[100];
+                Parameter_node* iterParam = iterArray->parameter_head;
+                while (iterParam)
+                {
+                    parameterCount ++;
+                    iterParam = iterParam->next;
+                }
+                sprintf(tmp, "Function pointer that takes %d arguments and returns ", parameterCount);
+                strcat(name, tmp);
             }
+            iterArray = iterArray->next;
         }
 
-        if ((left->kind == TYPE_WITH_PARAM) && (right->kind == TYPE_WITH_PARAM))
+        if (type->kind == TYPE_WITH_PARAM)
         {
-            fprintf(stderr, "[Error] Redefined parameters in %s", __func__);
+            int parameterCount = 0;
+            char tmp[100];
+            Parameter_node* iterParam = type->parameter_head;
+            while (iterParam)
+            {
+                parameterCount ++;
+                iterParam = iterParam->next;
+            }
+            sprintf(tmp, "Function that takes %d arguments and returns ", parameterCount);
+            strcat(name, tmp);
         }
-        else if (left->kind == TYPE_WITH_PARAM)
+
+        switch (type->type)
         {
-            ret->kind = TYPE_WITH_PARAM;
-            ret->parameter_head = right->parameter_head;
-            ret->parameter_tail = right->parameter_tail;
-        }
-        else if (right->kind == TYPE_WITH_PARAM)
-        {
-            ret->kind = TYPE_WITH_PARAM;
-            ret->parameter_head = left->parameter_head;
-            ret->parameter_tail = left->parameter_tail;
-        }
-        else
-        {
-            ret->parameter_head = NULL;
-            ret->parameter_tail = NULL;
+            char tmpName[50];
+            case NONE_TYPE:
+                strcat(name, "NONE_TYPE");
+                break;
+            case STRUCT_TYPE:
+                sprintf(tmpName, "STRUCT_TYPE (%s)", type->struct_name);
+                strcat(name, tmpName);
+                break;
+            case UNION_TYPE:
+                strcat(name, "UNION_TYPE");
+                break;
+            case BOOL_TYPE:
+                strcat(name, "BOOL_TYPE");
+                break;
+            case HALF_TYPE:
+                strcat(name, "HALF_TYPE");
+                break;
+            case VOID_TYPE:
+                strcat(name, "VOID_TYPE");
+                break;
+            case CHAR_TYPE:
+                strcat(name, "CHAR_TYPE");
+                break;
+            case CHAR2_TYPE:
+                strcat(name, "CHAR2_TYPE");
+                break;
+            case CHAR4_TYPE:
+                strcat(name, "CHAR4_TYPE");
+                break;
+            case CHAR8_TYPE:
+                strcat(name, "CHAR8_TYPE");
+                break;
+            case CHAR16_TYPE:
+                strcat(name, "CHAR16_TYPE");
+                break;
+            case UCHAR_TYPE:
+                strcat(name, "UCHAR_TYPE");
+                break;
+            case UCHAR2_TYPE:
+                strcat(name, "UCHAR2_TYPE");
+                break;
+            case UCHAR4_TYPE:
+                strcat(name, "UCHAR4_TYPE");
+                break;
+            case UCHAR8_TYPE:
+                strcat(name, "UCHAR8_TYPE");
+                break;
+            case UCHAR16_TYPE:
+                strcat(name, "UCHAR16_TYPE");
+                break;
+            case SHORT_TYPE:
+                strcat(name, "SHORT_TYPE");
+                break;
+            case SHORT2_TYPE:
+                strcat(name, "SHORT2_TYPE");
+                break;
+            case SHORT4_TYPE:
+                strcat(name, "SHORT4_TYPE");
+                break;
+            case SHORT8_TYPE:
+                strcat(name, "SHORT8_TYPE");
+                break;
+            case SHORT16_TYPE:
+                strcat(name, "SHORT16_TYPE");
+                break;
+            case USHORT_TYPE:
+                strcat(name, "USHORT_TYPE");
+                break;
+            case USHORT2_TYPE:
+                strcat(name, "USHORT2_TYPE");
+                break;
+            case USHORT4_TYPE:
+                strcat(name, "USHORT4_TYPE");
+                break;
+            case USHORT8_TYPE:
+                strcat(name, "USHORT8_TYPE");
+                break;
+            case USHORT16_TYPE:
+                strcat(name, "USHORT16_TYPE");
+                break;
+            case INT_TYPE:
+                strcat(name, "INT_TYPE");
+                break;
+            case INT2_TYPE:
+                strcat(name, "INT2_TYPE");
+                break;
+            case INT4_TYPE:
+                strcat(name, "INT4_TYPE");
+                break;
+            case INT8_TYPE:
+                strcat(name, "INT8_TYPE");
+                break;
+            case INT16_TYPE:
+                strcat(name, "INT16_TYPE");
+                break;
+            case UINT_TYPE:
+                strcat(name, "UINT_TYPE");
+                break;
+            case UINT2_TYPE:
+                strcat(name, "UINT2_TYPE");
+                break;
+            case UINT4_TYPE:
+                strcat(name, "UINT4_TYPE");
+                break;
+            case UINT8_TYPE:
+                strcat(name, "UINT8_TYPE");
+                break;
+            case UINT16_TYPE:
+                strcat(name, "UINT16_TYPE");
+                break;
+            case LONG_TYPE:
+                strcat(name, "LONG_TYPE");
+                break;
+            case LONG2_TYPE:
+                strcat(name, "LONG2_TYPE");
+                break;
+            case LONG4_TYPE:
+                strcat(name, "LONG4_TYPE");
+                break;
+            case LONG8_TYPE:
+                strcat(name, "LONG8_TYPE");
+                break;
+            case LONG16_TYPE:
+                strcat(name, "LONG16_TYPE");
+                break;
+            case ULONG_TYPE:
+                strcat(name, "ULONG_TYPE");
+                break;
+            case ULONG2_TYPE:
+                strcat(name, "ULONG2_TYPE");
+                break;
+            case ULONG4_TYPE:
+                strcat(name, "ULONG4_TYPE");
+                break;
+            case ULONG8_TYPE:
+                strcat(name, "ULONG8_TYPE");
+                break;
+            case ULONG16_TYPE:
+                strcat(name, "ULONG16_TYPE");
+                break;
+            case FLOAT_TYPE:
+                strcat(name, "FLOAT_TYPE");
+                break;
+            case FLOAT2_TYPE:
+                strcat(name, "FLOAT2_TYPE");
+                break;
+            case FLOAT4_TYPE:
+                strcat(name, "FLOAT4_TYPE");
+                break;
+            case FLOAT8_TYPE:
+                strcat(name, "FLOAT8_TYPE");
+                break;
+            case FLOAT16_TYPE:
+                strcat(name, "FLOAT16_TYPE");
+                break;
+            case DOUBLE_TYPE:
+                strcat(name, "DOUBLE_TYPE");
+                break;
+            case DOUBLE2_TYPE:
+                strcat(name, "DOUBLE2_TYPE");
+                break;
+            case DOUBLE4_TYPE:
+                strcat(name, "DOUBLE4_TYPE");
+                break;
+            case DOUBLE8_TYPE:
+                strcat(name, "DOUBLE8_TYPE");
+                break;
+            case DOUBLE16_TYPE:
+                strcat(name, "DOUBLE16_TYPE");
+                break;
         }
     }
-    return ret;
 }
 
 void DebugReturnStmt(ReturnStatement* stmt, int align)
@@ -950,6 +884,7 @@ int main(int argc, char *argv[])
 
     yyin=fp;
 
+    typeTable = CreateTypeNameTable();
     program = CreateProgramNode();
     yyparse();
     DebugProgramNode(program);

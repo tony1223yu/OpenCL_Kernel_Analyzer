@@ -236,8 +236,13 @@ int check_type(void)
 /*
 *	it actually will only return IDENTIFIER
 */
-
-        //return TYPE_NAME;
+    TypeDescriptor* ret = CheckTypeNameTable(typeTable, yytext);
+    if (ret != NULL)
+    {
+        yylval.type_desc_node = ret;
+        return TYPE_NAME;
+    }
+    else
     {
         yylval.ptr = strdup(yytext);
         if (!yylval.ptr)

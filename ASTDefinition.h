@@ -26,6 +26,8 @@ typedef struct Declaration_desc_node Declaration_desc_node;
 typedef struct Declaration_desc_node_list Declaration_desc_node_list;
 typedef struct Parameter_node_list Parameter_node_list;
 typedef struct Declaration_node_list Declaration_node_list;
+typedef struct TypeName_node TypeName_node;
+typedef struct TypeNameTable TypeNameTable;
 
 typedef enum OPENCL_DATA_TYPE OPENCL_DATA_TYPE;
 typedef enum EXPRESSION_KIND EXPRESSION_KIND;
@@ -35,11 +37,12 @@ typedef enum ARRAY_DESC_KIND ARRAY_DESC_KIND;
 typedef enum TYPE_DESC_KIND TYPE_DESC_KIND;
 typedef enum ITERATION_STMT_KIND ITERATION_STMT_KIND;
 
+TypeNameTable* typeTable;
 Program_node* program;
 int structNumber;
 
 TypeDescriptor* CreateScalarTypeDesc(OPENCL_DATA_TYPE, char*);
-TypeDescriptor* MergeTypeDesc(TypeDescriptor*, TypeDescriptor*);
+TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor*, TypeDescriptor*);
 Constant_node* CreateEmptyConstantNode(void);
 Expression_node* CreateDirectExprNode(void*, Expression_node*, Expression_node*, EXPRESSION_KIND);
 Expression_node* CreateNormalExprNode(EXPRESSION_KIND, Expression_node*, Expression_node*);
@@ -70,6 +73,14 @@ void AddFuncNodeToProgram(Program_node*, Function_node*);
 void AddDeclNodeToProgram(Program_node*, Declaration_node*);
 Program_node* CreateProgramNode(void);
 void AddStructDeclNode(Program_node*, char*, Declaration_node_list*);
+void AddToTypeTable(TypeNameTable*, TypeDescriptor*, Declaration_desc_node_list*);
+TypeName_node* CreateTypeNameNode(char*, TypeDescriptor*);
+TypeNameTable* CreateTypeNameTable(void);
+TypeDescriptor* CheckTypeNameTable(TypeNameTable*, char*);
+TypeDescriptor* DuplicateTypeDesc(TypeDescriptor*);
+ArrayDesc_node* DuplicateArrayDesc(ArrayDesc_node*);
+Parameter_node* DuplicateParamNode(Parameter_node*);
+Declaration_desc_node* DuplicateDeclDescNode(Declaration_desc_node*);
 
 void DeleteTypeDesc(TypeDescriptor*);
 
@@ -90,7 +101,6 @@ void DebugDeclNode(Declaration_node*, int);
 void DebugReturnStmt(ReturnStatement*, int);
 void DebugConstantNode(Constant_node*, int);
 void DebugFunctionInvocationNode(FunctionInvocation_node*, int);
-TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor*, TypeDescriptor*);
 void DebugStructNode(StructDeclaration_node*);
 
 #if 0
@@ -259,6 +269,19 @@ enum STATEMENT_KIND
     EMPTY_CONTINUE_STMT,
     EMPTY_BREAK_STMT,
     EMPTY_RETURN_STMT
+};
+
+struct TypeNameTable
+{
+    TypeName_node* type_node_head;
+    TypeName_node* type_node_tail;
+};
+
+struct TypeName_node
+{
+    char* identifier_name;
+    TypeDescriptor* identifier_type;
+    TypeName_node* next;
 };
 
 // whole program
