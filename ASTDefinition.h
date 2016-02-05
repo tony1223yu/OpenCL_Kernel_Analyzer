@@ -17,13 +17,15 @@ typedef struct SelectionStatement SelectionStatement;
 typedef struct Selection_node Selection_node;
 typedef struct Expression_node Expression_node;
 typedef struct FunctionInvocation_node FunctionInvocation_node;
-typedef struct StructDesc StructDesc;
-typedef struct StructMember StructMember;
+typedef struct StructDeclaration_node StructDeclaration_node;
+typedef struct StructMember_node StructMember_node;
+typedef struct StructMember_node_list StructMember_node_list;
 typedef struct Expression_node_list Expression_node_list;
 typedef struct CompoundStatement CompoundStatement;
 typedef struct Declaration_desc_node Declaration_desc_node;
 typedef struct Declaration_desc_node_list Declaration_desc_node_list;
 typedef struct Parameter_node_list Parameter_node_list;
+typedef struct Declaration_node_list Declaration_node_list;
 
 typedef enum OPENCL_DATA_TYPE OPENCL_DATA_TYPE;
 typedef enum EXPRESSION_KIND EXPRESSION_KIND;
@@ -34,9 +36,9 @@ typedef enum TYPE_DESC_KIND TYPE_DESC_KIND;
 typedef enum ITERATION_STMT_KIND ITERATION_STMT_KIND;
 
 Program_node* program;
+int structNumber;
 
-
-TypeDescriptor* CreateScalarTypeDesc(OPENCL_DATA_TYPE);
+TypeDescriptor* CreateScalarTypeDesc(OPENCL_DATA_TYPE, char*);
 TypeDescriptor* MergeTypeDesc(TypeDescriptor*, TypeDescriptor*);
 Constant_node* CreateEmptyConstantNode(void);
 Expression_node* CreateDirectExprNode(void*, Expression_node*, Expression_node*, EXPRESSION_KIND);
@@ -46,6 +48,7 @@ Expression_node_list* AppendExprNodeToList(Expression_node_list*, Expression_nod
 ExpressionStatement* AddToExprStmt(ExpressionStatement*, Expression_node*);
 Statement_node* CreateStmtNode(void*, STATEMENT_KIND);
 Declaration_node* CreateDeclNode(TypeDescriptor*, Declaration_desc_node_list*);
+Declaration_node_list* AppenDeclNodeToList(Declaration_node_list*, Declaration_node*);
 Declaration_desc_node_list* AppendDeclDescNodeToList(Declaration_desc_node_list*, Declaration_desc_node*);
 Declaration_desc_node* CreateDeclDescNode(char*);
 ArrayDesc_node_list* AppendArrayDescNodeToList(ArrayDesc_node_list*, ArrayDesc_node*);
@@ -66,6 +69,9 @@ Function_node* CreateFunctionNode(TypeDescriptor*, Declaration_desc_node*, Compo
 void AddFuncNodeToProgram(Program_node*, Function_node*);
 void AddDeclNodeToProgram(Program_node*, Declaration_node*);
 Program_node* CreateProgramNode(void);
+void AddStructDeclNode(Program_node*, char*, Declaration_node_list*);
+
+void DeleteTypeDesc(TypeDescriptor*);
 
 /* Visualizing the AST */
 void DebugProgramNode(Program_node*);
@@ -85,14 +91,12 @@ void DebugReturnStmt(ReturnStatement*, int);
 void DebugConstantNode(Constant_node*, int);
 void DebugFunctionInvocationNode(FunctionInvocation_node*, int);
 TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor*, TypeDescriptor*);
+void DebugStructNode(StructDeclaration_node*);
 
 #if 0
 long GetIntValFromConstNode(Constant_node*);
 unsigned long GetUIntValFromConstNode(Constant_node*);
 double GetFloatValFromConstNode(Constant_node*);
-long ProcessIntVal(long, long, EXPRESSION_KIND);
-unsigned long ProcessUIntVal(unsigned long, unsigned long, EXPRESSION_KIND);
-double ProcessFloatVal(double, double, EXPRESSION_KIND);
 #endif
 
 enum OPENCL_DATA_TYPE
@@ -260,27 +264,20 @@ enum STATEMENT_KIND
 // whole program
 struct Program_node
 {
-    StructDesc* struct_head;
-    StructDesc* struct_tail;
+    StructDeclaration_node* struct_head;
+    StructDeclaration_node* struct_tail;
     Declaration_node* declaration_head;
     Declaration_node* declaration_tail;
     Function_node* function_head;
     Function_node* function_tail;
 };
 
-struct StructDesc
+struct StructDeclaration_node
 {
     char* struct_name;
-    StructMember* member_head;
-    StructMember* member_tail;
-    StructDesc* next;
-};
-
-struct StructMember
-{
-    TypeDescriptor* structMember_type;
-    char* structMember_name;
-    StructMember* next;
+    Declaration_node* member_head;
+    Declaration_node* member_tail;
+    StructDeclaration_node* next;
 };
 
 struct TypeDescriptor
@@ -337,6 +334,12 @@ struct Parameter_node_list
 {
     Parameter_node* parameter_head;
     Parameter_node* parameter_tail;
+};
+
+struct Declaration_node_list
+{
+    Declaration_node* declaration_head;
+    Declaration_node* declaration_tail;
 };
 
 struct Declaration_node

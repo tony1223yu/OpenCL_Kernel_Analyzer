@@ -29,63 +29,63 @@ void comment(void);
 
 "#define"          { count(); return (DEFINE); }
 
-"float"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(FLOAT_TYPE); return (OPENCL_TYPE); }
-"float2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(FLOAT2_TYPE); return (OPENCL_TYPE); }
-"float4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(FLOAT4_TYPE); return (OPENCL_TYPE); }
-"float8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(FLOAT8_TYPE); return (OPENCL_TYPE); }
-"float16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(FLOAT16_TYPE); return (OPENCL_TYPE); }
-"double"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(DOUBLE_TYPE); return (OPENCL_TYPE); }
-"double2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(DOUBLE2_TYPE); return (OPENCL_TYPE); }
-"double4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(DOUBLE4_TYPE); return (OPENCL_TYPE); }
-"double8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(DOUBLE8_TYPE); return (OPENCL_TYPE); }
-"double16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(DOUBLE16_TYPE); return (OPENCL_TYPE); }
-"char"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(CHAR_TYPE); return (OPENCL_TYPE); }
-"char2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(CHAR2_TYPE); return (OPENCL_TYPE); }
-"char4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(CHAR4_TYPE); return (OPENCL_TYPE); }
-"char8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(CHAR8_TYPE); return (OPENCL_TYPE); }
-"char16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(CHAR16_TYPE); return (OPENCL_TYPE); }
-"short"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(SHORT_TYPE); return (OPENCL_TYPE); }
-"short2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(SHORT2_TYPE); return (OPENCL_TYPE); }
-"short4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(SHORT4_TYPE); return (OPENCL_TYPE); }
-"short8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(SHORT8_TYPE); return (OPENCL_TYPE); }
-"short16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(SHORT16_TYPE); return (OPENCL_TYPE); }
-"int"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(INT_TYPE); return (OPENCL_TYPE); }
-"int2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(INT2_TYPE); return (OPENCL_TYPE); }
-"int4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(INT4_TYPE); return (OPENCL_TYPE); }
-"int8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(INT8_TYPE); return (OPENCL_TYPE); }
-"int16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(INT16_TYPE); return (OPENCL_TYPE); }
-"long"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(LONG_TYPE); return (OPENCL_TYPE); }
-"long2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(LONG2_TYPE); return (OPENCL_TYPE); }
-"long4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(LONG4_TYPE); return (OPENCL_TYPE); }
-"long8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(LONG8_TYPE); return (OPENCL_TYPE); }
-"long16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(LONG16_TYPE); return (OPENCL_TYPE); }
-"uchar"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR_TYPE); return (OPENCL_TYPE); }
-"unsigned char"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR_TYPE); return (OPENCL_TYPE); }
-"uchar2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR2_TYPE); return (OPENCL_TYPE); }
-"uchar4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR4_TYPE); return (OPENCL_TYPE); }
-"uchar8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR8_TYPE); return (OPENCL_TYPE); }
-"uchar16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR16_TYPE); return (OPENCL_TYPE); }
-"ushort"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT_TYPE); return (OPENCL_TYPE); }
-"unsigned short"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT_TYPE); return (OPENCL_TYPE); }
-"ushort2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT2_TYPE); return (OPENCL_TYPE); }
-"ushort4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT4_TYPE); return (OPENCL_TYPE); }
-"ushort8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT8_TYPE); return (OPENCL_TYPE); }
-"ushort16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT16_TYPE); return (OPENCL_TYPE); }
-"uint"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT_TYPE); return (OPENCL_TYPE); }
-"unsigned int"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT_TYPE); return (OPENCL_TYPE); }
-"uint2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT2_TYPE); return (OPENCL_TYPE); }
-"uint4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT4_TYPE); return (OPENCL_TYPE); }
-"uint8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT8_TYPE); return (OPENCL_TYPE); }
-"uint16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT16_TYPE); return (OPENCL_TYPE); }
-"ulong"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG_TYPE); return (OPENCL_TYPE); }
-"unsigned long"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG_TYPE); return (OPENCL_TYPE); }
-"ulong2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG2_TYPE); return (OPENCL_TYPE); }
-"ulong4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG4_TYPE); return (OPENCL_TYPE); }
-"ulong8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG8_TYPE); return (OPENCL_TYPE); }
-"ulong16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG16_TYPE); return (OPENCL_TYPE); }
-"bool"			{ count(); yylval.type_desc_node = CreateScalarTypeDesc(BOOL_TYPE); return (OPENCL_TYPE); }
-"half"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(HALF_TYPE); return (OPENCL_TYPE); }
-"void"			{ count(); yylval.type_desc_node = CreateScalarTypeDesc(VOID_TYPE); return (OPENCL_TYPE); }
+"float"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(FLOAT_TYPE, NULL); return (OPENCL_TYPE); }
+"float2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(FLOAT2_TYPE, NULL); return (OPENCL_TYPE); }
+"float4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(FLOAT4_TYPE, NULL); return (OPENCL_TYPE); }
+"float8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(FLOAT8_TYPE, NULL); return (OPENCL_TYPE); }
+"float16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(FLOAT16_TYPE, NULL); return (OPENCL_TYPE); }
+"double"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(DOUBLE_TYPE, NULL); return (OPENCL_TYPE); }
+"double2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(DOUBLE2_TYPE, NULL); return (OPENCL_TYPE); }
+"double4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(DOUBLE4_TYPE, NULL); return (OPENCL_TYPE); }
+"double8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(DOUBLE8_TYPE, NULL); return (OPENCL_TYPE); }
+"double16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(DOUBLE16_TYPE, NULL); return (OPENCL_TYPE); }
+"char"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(CHAR_TYPE, NULL); return (OPENCL_TYPE); }
+"char2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(CHAR2_TYPE, NULL); return (OPENCL_TYPE); }
+"char4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(CHAR4_TYPE, NULL); return (OPENCL_TYPE); }
+"char8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(CHAR8_TYPE, NULL); return (OPENCL_TYPE); }
+"char16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(CHAR16_TYPE, NULL); return (OPENCL_TYPE); }
+"short"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(SHORT_TYPE, NULL); return (OPENCL_TYPE); }
+"short2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(SHORT2_TYPE, NULL); return (OPENCL_TYPE); }
+"short4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(SHORT4_TYPE, NULL); return (OPENCL_TYPE); }
+"short8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(SHORT8_TYPE, NULL); return (OPENCL_TYPE); }
+"short16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(SHORT16_TYPE, NULL); return (OPENCL_TYPE); }
+"int"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(INT_TYPE, NULL); return (OPENCL_TYPE); }
+"int2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(INT2_TYPE, NULL); return (OPENCL_TYPE); }
+"int4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(INT4_TYPE, NULL); return (OPENCL_TYPE); }
+"int8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(INT8_TYPE, NULL); return (OPENCL_TYPE); }
+"int16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(INT16_TYPE, NULL); return (OPENCL_TYPE); }
+"long"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(LONG_TYPE, NULL); return (OPENCL_TYPE); }
+"long2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(LONG2_TYPE, NULL); return (OPENCL_TYPE); }
+"long4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(LONG4_TYPE, NULL); return (OPENCL_TYPE); }
+"long8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(LONG8_TYPE, NULL); return (OPENCL_TYPE); }
+"long16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(LONG16_TYPE, NULL); return (OPENCL_TYPE); }
+"uchar"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR_TYPE, NULL); return (OPENCL_TYPE); }
+"unsigned char"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR_TYPE, NULL); return (OPENCL_TYPE); }
+"uchar2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR2_TYPE, NULL); return (OPENCL_TYPE); }
+"uchar4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR4_TYPE, NULL); return (OPENCL_TYPE); }
+"uchar8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR8_TYPE, NULL); return (OPENCL_TYPE); }
+"uchar16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UCHAR16_TYPE, NULL); return (OPENCL_TYPE); }
+"ushort"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT_TYPE, NULL); return (OPENCL_TYPE); }
+"unsigned short"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT_TYPE, NULL); return (OPENCL_TYPE); }
+"ushort2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT2_TYPE, NULL); return (OPENCL_TYPE); }
+"ushort4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT4_TYPE, NULL); return (OPENCL_TYPE); }
+"ushort8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT8_TYPE, NULL); return (OPENCL_TYPE); }
+"ushort16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(USHORT16_TYPE, NULL); return (OPENCL_TYPE); }
+"uint"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT_TYPE, NULL); return (OPENCL_TYPE); }
+"unsigned int"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT_TYPE, NULL); return (OPENCL_TYPE); }
+"uint2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT2_TYPE, NULL); return (OPENCL_TYPE); }
+"uint4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT4_TYPE, NULL); return (OPENCL_TYPE); }
+"uint8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT8_TYPE, NULL); return (OPENCL_TYPE); }
+"uint16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(UINT16_TYPE, NULL); return (OPENCL_TYPE); }
+"ulong"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG_TYPE, NULL); return (OPENCL_TYPE); }
+"unsigned long"           { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG_TYPE, NULL); return (OPENCL_TYPE); }
+"ulong2"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG2_TYPE, NULL); return (OPENCL_TYPE); }
+"ulong4"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG4_TYPE, NULL); return (OPENCL_TYPE); }
+"ulong8"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG8_TYPE, NULL); return (OPENCL_TYPE); }
+"ulong16"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(ULONG16_TYPE, NULL); return (OPENCL_TYPE); }
+"bool"			{ count(); yylval.type_desc_node = CreateScalarTypeDesc(BOOL_TYPE, NULL); return (OPENCL_TYPE); }
+"half"          { count(); yylval.type_desc_node = CreateScalarTypeDesc(HALF_TYPE, NULL); return (OPENCL_TYPE); }
+"void"			{ count(); yylval.type_desc_node = CreateScalarTypeDesc(VOID_TYPE, NULL); return (OPENCL_TYPE); }
 
 "auto"			{ count(); return (AUTO); }
 "break"			{ count(); return (BREAK); }
@@ -117,17 +117,17 @@ void comment(void);
 
 
  /* TODO: seperate int/long and float/double */
-0[xX]{H}+{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
-0[0-7]*{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
-[1-9]{D}*{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
-L?'(\\.|[^\\'\n])+'	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
+0[xX]{H}+{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE, NULL); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
+0[0-7]*{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE, NULL); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
+[1-9]{D}*{IS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE, NULL); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
+L?'(\\.|[^\\'\n])+'	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(INT_TYPE, NULL); yylval.const_node->value.long_val = atoi(yytext);  return (CONSTANT); }
 
-{D}+{E}{FS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
-{D}*"."{D}+{E}?{FS}?	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
-{D}+"."{D}*{E}?{FS}?	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
-0[xX]{H}+{P}{FS}?	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
-0[xX]{H}*"."{H}+{P}?{FS}?     { count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
-0[xX]{H}+"."{H}*{P}?{FS}?     { count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+{D}+{E}{FS}?		{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE, NULL); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+{D}*"."{D}+{E}?{FS}?	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE, NULL); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+{D}+"."{D}*{E}?{FS}?	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE, NULL); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+0[xX]{H}+{P}{FS}?	{ count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE, NULL); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+0[xX]{H}*"."{H}+{P}?{FS}?     { count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE, NULL); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
+0[xX]{H}+"."{H}*{P}?{FS}?     { count(); yylval.const_node = CreateEmptyConstantNode(); yylval.const_node->constant_type = CreateScalarTypeDesc(DOUBLE_TYPE, NULL); yylval.const_node->value.double_val = atof(yytext);  return (CONSTANT); }
 
 
 L?\"([^"]|\\.)*\" { count(); return (STRING_LITERAL); }

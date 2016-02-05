@@ -73,174 +73,6 @@ double GetFloatValFromConstNode(Constant_node* node)
         }
     }
 }
-
-long ProcessIntArithmeticOP(long leftOperand, long rightOperand, EXPRESSION_KIND kind)
-{
-    if (kind && ARITHMETIC_OP_MASK)
-    {
-        long result;
-        switch (kind)
-        {
-    		case ADDITION_OP:
-				result = leftOperand + rightOperand;
-				break;
-    		case SUBTRACTION_OP:
-				result = leftOperand - rightOperand;
-				break;
-    		case MULTIPLICATION_OP:
-				result = leftOperand * rightOperand;
-				break;
-    		case DIVISION_OP:
-				result = leftOperand / rightOperand;
-				break;
-    		case MODULAR_OP:
-				result = leftOperand % rightOperand;
-				break;
-    		case POST_INCREASE_OP:
-				/* TODO */
-                break;
-    		case POST_DECREASE_OP:
-				/* TODO */
-				break;
-    		case PRE_INCREASE_OP:
-				result = leftOperand + 1;
-				break;
-    		case PRE_DECREASE_OP:
-				result = leftOperand - 1;
-				break;
-    		case SHIFT_LEFT_OP:
-				result = leftOperand << rightOperand;
-				break;
-    		case SHIFT_RIGHT_OP:
-				result = leftOperand >> rightOperand;
-				break;
-    		case BITWISE_AND_OP:
-				result = leftOperand & rightOperand;
-				break;
-    		case BITWISE_XOR_OP:
-				result = leftOperand ^ rightOperand;
-				break;
-    		case BITWISE_OR_OP:
-				result = leftOperand | rightOperand;
-				break;
-    		case MEMORY_OP:
-				/* TODO */
-                break;
-        }
-        return result;
-    }
-    else
-    {
-        fprintf(stderr, "[Error] Given argument is not a operation\n");
-        return 0;
-    }
-}
-
-unsigned long ProcessUIntArithmeticOP(unsigned long leftOperand, unsigned long rightOperand, EXPRESSION_KIND kind)
-{
-    if (kind && ARITHMETIC_OP_MASK)
-    {
-        unsigned long result;
-        switch (kind)
-        {
-    		case ADDITION_OP:
-				result = leftOperand + rightOperand;
-				break;
-    		case SUBTRACTION_OP:
-				result = leftOperand - rightOperand;
-				break;
-    		case MULTIPLICATION_OP:
-				result = leftOperand * rightOperand;
-				break;
-    		case DIVISION_OP:
-				result = leftOperand / rightOperand;
-				break;
-    		case MODULAR_OP:
-				result = leftOperand % rightOperand;
-				break;
-    		case POST_INCREASE_OP:
-				/* TODO */
-                break;
-    		case POST_DECREASE_OP:
-				/* TODO */
-				break;
-    		case PRE_INCREASE_OP:
-				result = leftOperand + 1;
-				break;
-    		case PRE_DECREASE_OP:
-				result = leftOperand - 1;
-				break;
-    		case SHIFT_LEFT_OP:
-				result = leftOperand << rightOperand;
-				break;
-    		case SHIFT_RIGHT_OP:
-				result = leftOperand >> rightOperand;
-				break;
-    		case BITWISE_AND_OP:
-				result = leftOperand & rightOperand;
-				break;
-    		case BITWISE_XOR_OP:
-				result = leftOperand ^ rightOperand;
-				break;
-    		case BITWISE_OR_OP:
-				result = leftOperand | rightOperand;
-				break;
-    		case MEMORY_OP:
-				/* TODO */
-                break;
-        }
-        return result;
-    }
-    else
-    {
-        fprintf(stderr, "[Error] Given argument is not a operation\n");
-        return 0;
-    }
-}
-
-double ProcessFloatArithmeticOP(double leftOperand, double rightOperand, EXPRESSION_KIND kind)
-{
-    if (kind && ARITHMETIC_OP_MASK)
-    {
-        double result;
-        switch (kind)
-        {
-    		case ADDITION_OP:
-				result = leftOperand + rightOperand;
-				break;
-    		case SUBTRACTION_OP:
-				result = leftOperand - rightOperand;
-				break;
-    		case MULTIPLICATION_OP:
-				result = leftOperand * rightOperand;
-				break;
-    		case DIVISION_OP:
-				result = leftOperand / rightOperand;
-				break;
-    		case POST_INCREASE_OP:
-				/* TODO */
-                break;
-    		case POST_DECREASE_OP:
-				/* TODO */
-				break;
-    		case PRE_INCREASE_OP:
-				result = leftOperand + 1;
-				break;
-    		case PRE_DECREASE_OP:
-				result = leftOperand - 1;
-				break;
-    		case MEMORY_OP:
-				/* TODO */
-                break;
-        }
-        return result;
-    }
-    else
-    {
-        fprintf(stderr, "[Error] Given argument is not a operation\n");
-        return 0;
-    }
-}
 #endif
 
 void DebugProgramNode(Program_node* prog)
@@ -248,8 +80,14 @@ void DebugProgramNode(Program_node* prog)
     if (!prog) return;
     else
     {
+        StructDeclaration_node* iterStruct = prog->struct_head;
         Declaration_node* iterDecl = prog->declaration_head;
         Function_node* iterFunc = prog->function_head;
+        while (iterStruct != NULL)
+        {
+            DebugStructNode(iterStruct);
+            iterStruct = iterStruct->next;
+        }
         while (iterDecl != NULL)
         {
             DebugDeclNode(iterDecl, 0);
@@ -263,6 +101,22 @@ void DebugProgramNode(Program_node* prog)
     }
 }
 
+void DebugStructNode(StructDeclaration_node* struct_node)
+{
+    if (!struct_node) return;
+    else
+    {
+        Declaration_node* iterNode = struct_node->member_head;
+        printf("======================================================================================\n");
+        printf("[Struct Name] %s\n", struct_node->struct_name);
+        while (iterNode != NULL)
+        {
+            DebugDeclNode(iterNode, 1);
+            iterNode = iterNode->next;
+        }
+    }
+}
+
 void DebugFuncNode(Function_node* func)
 {
     if (!func) return;
@@ -271,28 +125,28 @@ void DebugFuncNode(Function_node* func)
         Parameter_node* iterParam;
         char type_name[1000];
         printf("======================================================================================\n");
-        printf("[Name] %s\n", func->function_name);
+        printf("[Function Name] %s\n", func->function_name);
         DebugTypeDesc(func->return_type, type_name);
-        printf("[Retrun type] %s\n", type_name);
+        printf("\t[Retrun type] %s\n", type_name);
         if (func->parameter_head == NULL)
-            printf("[Parameter] NULL\n");
+            printf("\t[Parameter] NULL\n");
         else
         {
-            printf("[Parameter]\n");
+            printf("\t[Parameter]\n");
             iterParam = func->parameter_head;
             while (iterParam)
             {
-                DebugParamNode(iterParam, 1);
+                DebugParamNode(iterParam, 2);
                 iterParam = iterParam->next;
             }
         }
 
         if (func->content_statement == NULL)
-            printf("[Content] NULL\n");
+            printf("\t[Content] NULL\n");
         else
         {
-            printf("[Content]\n");
-            DebugCompoundStmt(func->content_statement, 1);
+            printf("\t[Content]\n");
+            DebugCompoundStmt(func->content_statement, 2);
         }
     }
 }
@@ -769,11 +623,13 @@ void DebugTypeDesc(TypeDescriptor* type, char* name)
 
             switch (type->type)
             {
+                char tmpName[50];
     			case NONE_TYPE:
 					strcat(name, "NONE_TYPE");
 					break;
     			case STRUCT_TYPE:
-					strcat(name, "STRUCT_TYPE");
+                    sprintf(tmpName, "STRUCT_TYPE (%s)", type->struct_name);
+					strcat(name, tmpName);
 					break;
     			case UNION_TYPE:
 					strcat(name, "UNION_TYPE");
@@ -972,6 +828,7 @@ TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right
     }
     else
     {
+        /* should be left */
         ret->type = left->type;
         ret->struct_name = left->struct_name;
 

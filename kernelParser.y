@@ -1,9 +1,11 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "ASTDefinition.h"
 
 extern Program_node* program;
+extern int structNumber;
 
 void AddFuncNodeToProgram(Program_node* prog, Function_node* func_node)
 {
@@ -120,6 +122,9 @@ FunctionInvocation_node* CreateFunctionInvocation_node(char* function_name, Expr
 
 Expression_node_list* AppendExprNodeToList(Expression_node_list* origin_list, Expression_node* new_node)
 {
+    if (new_node == NULL)
+        return origin_list;
+
     if (origin_list == NULL)
     {
         Expression_node_list* ret = (Expression_node_list*) malloc(sizeof(Expression_node_list));
@@ -201,6 +206,9 @@ Declaration_node* CreateDeclNode(TypeDescriptor* type, Declaration_desc_node_lis
 
 Declaration_desc_node_list* AppendDeclDescNodeToList(Declaration_desc_node_list* origin_list, Declaration_desc_node* new_desc)
 {
+    if (new_desc == NULL)
+        return origin_list;
+
     if (origin_list == NULL)
     {
         Declaration_desc_node_list* ret = (Declaration_desc_node_list*) malloc(sizeof(Declaration_desc_node_list));
@@ -239,6 +247,9 @@ ArrayDesc_node* CreateArrayDescNode(unsigned long size, ARRAY_DESC_KIND kind)
 
 ArrayDesc_node_list* AppendArrayDescNodeToList(ArrayDesc_node_list* origin_list, ArrayDesc_node* new_node)
 {
+    if (new_node == NULL)
+        return origin_list;
+
     if (origin_list == NULL)
     {
         ArrayDesc_node_list* ret = (ArrayDesc_node_list*) malloc(sizeof(ArrayDesc_node_list));
@@ -272,7 +283,7 @@ Declaration_desc_node* AddParamToDeclDesc(Declaration_desc_node* decl_desc, Para
     currType = decl_desc->identifier_type;
     if (currType == NULL)
     {
-        ret->identifier_type = CreateScalarTypeDesc(NONE_TYPE);
+        ret->identifier_type = CreateScalarTypeDesc(NONE_TYPE, NULL);
         ret->identifier_type->kind = TYPE_WITH_PARAM;
         if (param_node_list != NULL)
         {
@@ -340,7 +351,7 @@ Declaration_desc_node* AddArrayDescToDeclDesc(Declaration_desc_node* decl_desc, 
         currType = ret->identifier_type;
         if (currType == NULL)
         {
-            ret->identifier_type = CreateScalarTypeDesc(NONE_TYPE);
+            ret->identifier_type = CreateScalarTypeDesc(NONE_TYPE, NULL);
             ret->identifier_type->array_desc_head = array_desc;
             ret->identifier_type->array_desc_tail = array_desc;
         }
@@ -383,7 +394,7 @@ Declaration_desc_node* AddArrayDescListToDeclDesc(Declaration_desc_node* decl_de
         currType = ret->identifier_type;
         if (currType == NULL)
         {
-            ret->identifier_type = CreateScalarTypeDesc(NONE_TYPE);
+            ret->identifier_type = CreateScalarTypeDesc(NONE_TYPE, NULL);
             ret->identifier_type->array_desc_head = array_desc_list->array_desc_head;
             ret->identifier_type->array_desc_tail = array_desc_list->array_desc_tail;
         }
@@ -432,6 +443,9 @@ void GetUlongValueInExprNode(Expression_node* expr_node, unsigned long* returnVa
 
 Parameter_node_list* AppendParamNodeToList(Parameter_node_list* origin_list, Parameter_node* new_node)
 {
+    if (new_node == NULL)
+        return origin_list;
+
     if (origin_list == NULL)
     {
         Parameter_node_list* ret = (Parameter_node_list*) malloc(sizeof(Parameter_node_list));
@@ -455,11 +469,11 @@ Parameter_node* CreateParamNode(TypeDescriptor* type, Declaration_desc_node* des
     return ret;
 }
 
-TypeDescriptor* CreateScalarTypeDesc(OPENCL_DATA_TYPE type)
+TypeDescriptor* CreateScalarTypeDesc(OPENCL_DATA_TYPE type, char* struct_name)
 {
     TypeDescriptor* ret = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
     ret->type = type;
-    ret->struct_name = NULL;
+    ret->struct_name = struct_name;
     ret->array_desc_head = NULL;
     ret->array_desc_tail = NULL;
     ret->kind = TYPE_WITHOUT_PARAM;
@@ -691,10 +705,85 @@ Program_node* CreateProgramNode(void)
     ret->function_tail = NULL;
 }
 
+Declaration_node_list* AppendDeclNodeToList(Declaration_node_list* origin_list, Declaration_node* new_node)
+{
+    if (new_node == NULL)
+        return origin_list;
+
+    if (origin_list == NULL)
+    {
+        Declaration_node_list* ret = (Declaration_node_list*) malloc(sizeof(Declaration_node_list));
+        ret->declaration_head = new_node;
+        ret->declaration_tail = new_node;
+        return ret;
+    }
+    else
+    {
+        origin_list->declaration_tail->next = new_node;
+        origin_list->declaration_tail = new_node;
+        return origin_list;
+    }
+}
+
+void AddStructDeclNode(Program_node* prog, char* name, Declaration_node_list* member_list)
+{
+    if (prog == NULL)
+    {
+        fprintf(stderr, "[Error] Given program node is NULL\n");
+        return;
+    }
+    else
+    {
+        StructDeclaration_node* struct_decl = (StructDeclaration_node*) malloc(sizeof(StructDeclaration_node));
+        struct_decl->struct_name = name;
+        struct_decl->member_head = member_list->declaration_head;
+        struct_decl->member_tail = member_list->declaration_tail;
+        struct_decl->next = NULL;
+
+        if (prog->struct_head == NULL)
+        {
+            prog->struct_head = struct_decl;
+            prog->struct_tail = struct_decl;
+        }
+        else
+        {
+            prog->struct_tail->next = struct_decl;
+            prog->struct_tail = struct_decl;
+        }
+    }
+}
+
+#if 0
+void DeleteTypeDesc(TypeDescriptor* type)
+{
+    if (type == NULL)
+        return;
+
+    if (type->array_desc_head != NULL)
+    {
+        ArrayDesc_node* iterNode = type->array_desc_head;
+        ArrayDesc_node* nextNode;
+        while (iterNode != NULL)
+        {
+            /* TODO */
+            nextNode = iterNode->next;
+            free (iterNode);
+            iterNode = nextNode;
+        }
+    }
+
+    if (type->parameter_head != NULL)
+    {
+        /* TODO */
+    }
+}
+#endif
+
 %}
 
 %union
 {
+    OPENCL_DATA_TYPE opencl_type;
     TypeDescriptor* type_desc_node;
     ArrayDesc_node_list* array_desc_node_list;
     Statement_node* stmt_node;
@@ -703,6 +792,7 @@ Program_node* CreateProgramNode(void)
     Declaration_node* decl_node;
     Declaration_desc_node* decl_desc_node;
     Declaration_desc_node_list* decl_desc_node_list;
+    Declaration_node_list* decl_node_list;
     Function_node* func_node;
     ExpressionStatement* expr_stmt;
     IterationStatement* iter_stmt;
@@ -735,14 +825,15 @@ Program_node* CreateProgramNode(void)
 %token CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 
 %type <expr_node> primary_expression postfix_expression unary_expression cast_expression multiplicative_expression additive_expression shift_expression relational_expression equality_expression and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression conditional_expression assignment_expression initializer
-
+%type <opencl_type> struct_or_union
 %type <expr_stmt> expression expression_statement
 %type <expr_node_list> argument_expression_list
-%type <type_desc_node> type_name declaration_specifiers type_specifier specifier_qualifier_list
+%type <type_desc_node> type_name declaration_specifiers type_specifier specifier_qualifier_list struct_or_union_specifier
 %type <array_desc_node_list> pointer
-%type <decl_node> declaration
-%type <decl_desc_node> declarator init_declarator direct_declarator abstract_declarator direct_abstract_declarator
-%type <decl_desc_node_list> init_declarator_list
+%type <decl_node_list> struct_declaration_list
+%type <decl_node> declaration struct_declaration
+%type <decl_desc_node> declarator init_declarator direct_declarator abstract_declarator direct_abstract_declarator struct_declarator
+%type <decl_desc_node_list> init_declarator_list struct_declarator_list
 %type <stmt_node> statement jump_statement
 %type <comp_stmt> compound_statement block_item_list block_item
 %type <sel_stmt> selection_statement
@@ -993,7 +1084,11 @@ constant_expression
 	;
 
 declaration
-	: declaration_specifiers ';' {$$ = CreateDeclNode($1, NULL);}
+	: declaration_specifiers ';'
+    {
+        //DeleteTypeDesc($1);
+        $$ = NULL;
+    }
 	| declaration_specifiers init_declarator_list ';' {$$ = CreateDeclNode($1, $2);}
     | TYPEDEF declaration_specifiers ';'
     {
@@ -1046,7 +1141,7 @@ storage_class_specifier
 type_specifier
     : struct_or_union_specifier
     {
-        // TODO
+        $$ = $1;
     }
 	| enum_specifier
     {
@@ -1064,22 +1159,39 @@ type_specifier
 
 struct_or_union_specifier
 	: struct_or_union IDENTIFIER '{' struct_declaration_list '}'
+    {
+        AddStructDeclNode(program, strdup($2), $4);
+        $$ = CreateScalarTypeDesc($1, $2);
+    }
 	| struct_or_union '{' struct_declaration_list '}'
+    {
+        char tmp[50];
+        sprintf(tmp, "_UNNAME_STRUCT_%d", structNumber ++);
+        AddStructDeclNode(program, strdup(tmp), $3);
+        $$ = CreateScalarTypeDesc($1, strdup(tmp));
+    }
 	| struct_or_union IDENTIFIER
+    {
+        $$ = CreateScalarTypeDesc($1, $2);
+    }
 	;
 
 struct_or_union
-	: STRUCT
+	: STRUCT {$$ = STRUCT_TYPE;}
 	| UNION
+    {
+        /* Behavior is roughly the same as struct */
+        $$ = STRUCT_TYPE;
+    }
 	;
 
 struct_declaration_list
-	: struct_declaration
-	| struct_declaration_list struct_declaration
+	: struct_declaration {$$ = AppendDeclNodeToList(NULL, $1);}
+	| struct_declaration_list struct_declaration {$$ = AppendDeclNodeToList($1, $2);}
 	;
 
 struct_declaration
-	: specifier_qualifier_list struct_declarator_list ';'
+	: specifier_qualifier_list struct_declarator_list ';' {$$ = CreateDeclNode($1, $2);}
 	;
 
 specifier_qualifier_list
@@ -1094,14 +1206,14 @@ specifier_qualifier_list
 	;
 
 struct_declarator_list
-	: struct_declarator
-	| struct_declarator_list ',' struct_declarator
+	: struct_declarator {$$ = AppendDeclDescNodeToList(NULL, $1);}
+	| struct_declarator_list ',' struct_declarator {$$ = AppendDeclDescNodeToList($1, $3);}
 	;
 
 struct_declarator
-	: declarator
-	| ':' constant_expression
-	| declarator ':' constant_expression
+	: declarator {$$ = $1;}
+	| ':' constant_expression {$$ = NULL;}
+	| declarator ':' constant_expression {$$ = $1;}
 	;
 
 enum_specifier
