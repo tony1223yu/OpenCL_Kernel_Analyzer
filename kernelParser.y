@@ -515,7 +515,7 @@ TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right
         /* should be left */
         ret->type = left->type;
         ret->struct_name = left->struct_name;
-
+        ret->kind = TYPE_WITHOUT_PARAM;
         ret->array_desc_head = right->array_desc_head;
         ret->array_desc_tail = right->array_desc_tail;
 
