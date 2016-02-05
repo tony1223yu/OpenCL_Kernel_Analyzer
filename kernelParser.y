@@ -515,7 +515,6 @@ TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right
         /* should be left */
         ret->type = left->type;
         ret->struct_name = left->struct_name;
-        ret->kind = TYPE_WITHOUT_PARAM;
         ret->array_desc_head = right->array_desc_head;
         ret->array_desc_tail = right->array_desc_tail;
 
@@ -551,6 +550,7 @@ TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right
         }
         else
         {
+            ret->kind = TYPE_WITHOUT_PARAM;
             ret->parameter_head = NULL;
             ret->parameter_tail = NULL;
         }
@@ -780,10 +780,19 @@ void AddStructDeclNode(Program_node* prog, char* name, Declaration_node_list* me
 
 TypeName_node* CreateTypeNameNode(char* name, TypeDescriptor* type)
 {
-    TypeName_node* ret = (TypeName_node*) malloc(sizeof(TypeName_node));
-    ret->identifier_name = name;
-    ret->identifier_type = type;
-    return ret;
+    if (CheckInTypeNameTable(typeTable, name))
+    {
+        // TODO
+        fprintf(stderr, "[Error] Given identifier is already a type in %s\n", __func__);
+        return NULL;
+    }
+    else
+    {
+        TypeName_node* ret = (TypeName_node*) malloc(sizeof(TypeName_node));
+        ret->identifier_name = name;
+        ret->identifier_type = type;
+        return ret;
+    }
 }
 
 void AddToTypeTable(TypeNameTable* table, TypeDescriptor* type, Declaration_desc_node_list* node_list)
@@ -945,13 +954,30 @@ Declaration_desc_node* DuplicateDeclDescNode(Declaration_desc_node* desc)
     }
 }
 
-TypeDescriptor* CheckTypeNameTable(TypeNameTable* table, char* name)
+int CheckInTypeNameTable(TypeNameTable* table, char* name)
 {
     TypeName_node* iter_node = table->type_node_head;
     while (iter_node != NULL)
     {
         if (strcmp(iter_node->identifier_name, name) == 0)
+        {
+            return 1;
+        }
+        else
+            iter_node = iter_node -> next;
+    }
+    return 0;
+}
+
+TypeDescriptor* GetTypeDescFromTypeNameTable(TypeNameTable* table, char* name)
+{
+    TypeName_node* iter_node = table->type_node_head;
+    while (iter_node != NULL)
+    {
+        if (strcmp(iter_node->identifier_name, name) == 0)
+        {
             return DuplicateTypeDesc(iter_node->identifier_type);
+        }
         else
             iter_node = iter_node -> next;
     }
@@ -1021,9 +1047,9 @@ void DeleteTypeDesc(TypeDescriptor* type)
 
 %token KERNEL ADDRESS_GLOBAL ADDRESS_LOCAL ADDRESS_PRIVATE ADDRESS_CONSTANT DEFINE
 
-%token <type_desc_node> OPENCL_TYPE TYPE_NAME
+%token <type_desc_node> OPENCL_TYPE
 %token <const_node> CONSTANT
-%token <ptr> IDENTIFIER
+%token <ptr> IDENTIFIER TYPE_NAME
 %token STRING_LITERAL SIZEOF
 %token PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
 %token AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
@@ -1320,6 +1346,7 @@ declaration_specifiers
 	| type_specifier declaration_specifiers
     {
         // should not appear two type_specifier at same time
+        fprintf(stderr, "[Error] Two type specifier\n");
         $$ = $1;
     }
 	| type_qualifier {$$ = NULL;}
@@ -1362,7 +1389,7 @@ type_specifier
     }
     | TYPE_NAME
     {
-        $$ = $1;
+        $$ = GetTypeDescFromTypeNameTable(typeTable, $1);
     }
 	| OPENCL_TYPE
     {
@@ -1376,6 +1403,12 @@ struct_or_union_specifier
         AddStructDeclNode(program, strdup($2), $4);
         $$ = CreateScalarTypeDesc($1, $2);
     }
+	| struct_or_union TYPE_NAME '{' struct_declaration_list '}'
+    {
+        // struct name is different from typedef name
+        AddStructDeclNode(program, strdup($2), $4);
+        $$ = CreateScalarTypeDesc($1, $2);
+    }
 	| struct_or_union '{' struct_declaration_list '}'
     {
         char tmp[50];
@@ -1384,6 +1417,10 @@ struct_or_union_specifier
         $$ = CreateScalarTypeDesc($1, strdup(tmp));
     }
 	| struct_or_union IDENTIFIER
+    {
+        $$ = CreateScalarTypeDesc($1, $2);
+    }
+    | struct_or_union TYPE_NAME
     {
         $$ = CreateScalarTypeDesc($1, $2);
     }

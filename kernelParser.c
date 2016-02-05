@@ -5,6 +5,7 @@
 
 extern int  yyparse();
 extern FILE *yyin;
+extern TypeNameTable* typeTable;
 extern Program_node* program;
 
 __inline__ void DebugAlignment(int align)

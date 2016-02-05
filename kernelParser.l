@@ -236,10 +236,10 @@ int check_type(void)
 /*
 *	it actually will only return IDENTIFIER
 */
-    TypeDescriptor* ret = CheckTypeNameTable(typeTable, yytext);
-    if (ret != NULL)
+    if(CheckInTypeNameTable(typeTable, yytext))
     {
-        yylval.type_desc_node = ret;
+        // return char*
+        yylval.ptr = strdup(yytext);
         return TYPE_NAME;
     }
     else
