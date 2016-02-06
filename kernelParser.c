@@ -86,7 +86,7 @@ void DebugProgramNode(Program_node* prog)
         Function_node* iterFunc = prog->function_head;
         while (iterStruct != NULL)
         {
-            DebugStructNode(iterStruct);
+            DebugStructDeclNode(iterStruct);
             iterStruct = iterStruct->next;
         }
         while (iterDecl != NULL)
@@ -102,7 +102,7 @@ void DebugProgramNode(Program_node* prog)
     }
 }
 
-void DebugStructNode(StructDeclaration_node* struct_node)
+void DebugStructDeclNode(StructDeclaration_node* struct_node)
 {
     if (!struct_node) return;
     else
@@ -163,7 +163,7 @@ void DebugParamNode(Parameter_node* param, int align)
         {
             mix_type = MixAndCreateTypeDesc(param->parameter_type, param->parameter_desc->identifier_type);
             DebugTypeDesc(mix_type, type_name);
-            free (mix_type);
+            DeleteTypeDesc(mix_type);
         }
         else
         {
@@ -394,7 +394,7 @@ void DebugExprNode(Expression_node* node, int align)
                 case EXPRESSION_FUNCTION:
                     DebugAlignment(align);
                     printf("[FUNCTION_CALL]\n");
-                    DebugFunctionInvocationNode(node->direct_expr.function, align+1);
+                    DebugFuncInvocationNode(node->direct_expr.function, align+1);
                     break;
                 case EXPRESSION_MEMBER:
                     DebugAlignment(align);
@@ -449,7 +449,7 @@ void DebugDeclNode(Declaration_node* decl, int align)
             char type_name[1000];
             TypeDescriptor* mix_type = MixAndCreateTypeDesc(decl->declaration_type, iterDecl->identifier_type);
             DebugTypeDesc(mix_type, type_name);
-            free(mix_type);
+            DeleteTypeDesc(mix_type);
 
             DebugAlignment(align);
             printf("[DECLARATION]\n");
@@ -582,13 +582,17 @@ void DebugExprKind(EXPRESSION_KIND kind, char* name)
 
 void DebugTypeDesc(TypeDescriptor* type, char* name)
 {
-    if (!type) return;
+    if (!type)
+    {
+        strcpy(name, "");
+        return;
+    }
     else
     {
         ArrayDesc_node* iterArray = type->array_desc_head;
         strcpy(name, "");
 
-        while (iterArray)
+        while (iterArray != NULL)
         {
             if (iterArray->desc_kind == ARRAY_DESC_POINTER)
             {
@@ -851,7 +855,7 @@ void DebugConstantNode(Constant_node* node, int align)
     }
 }
 
-void DebugFunctionInvocationNode(FunctionInvocation_node* node, int align)
+void DebugFuncInvocationNode(FunctionInvocation_node* node, int align)
 {
     if (!node) return;
     else
@@ -889,5 +893,7 @@ int main(int argc, char *argv[])
     program = CreateProgramNode();
     yyparse();
     DebugProgramNode(program);
+    DeleteTypeNameTable(typeTable);
+    DeleteProgramNode(program);
     fclose(fp);
 }

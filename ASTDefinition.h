@@ -83,7 +83,27 @@ ArrayDesc_node* DuplicateArrayDesc(ArrayDesc_node*);
 Parameter_node* DuplicateParamNode(Parameter_node*);
 Declaration_desc_node* DuplicateDeclDescNode(Declaration_desc_node*);
 
+/* Garbage collection */
+void DeleteProgramNode(Program_node*);
+void DeleteStructDeclNode(StructDeclaration_node*);
+void DeleteDeclNode(Declaration_node*);
+void DeleteDeclDescNode(Declaration_desc_node*);
+void DeleteFuncNode(Function_node*);
 void DeleteTypeDesc(TypeDescriptor*);
+void DeleteArrayDescNode(ArrayDesc_node*);
+void DeleteParamNode(Parameter_node*);
+void DeleteStmtNode(Statement_node*);
+void DeleteCompoundStmt(CompoundStatement*);
+void DeleteIterStmt(IterationStatement*);
+void DeleteSelectionStmt(SelectionStatement*);
+void DeleteSelectionNode(Selection_node*);
+void DeleteExprStmt(ExpressionStatement*);
+void DeleteExprNode(Expression_node*);
+void DeleteReturnStmt(ReturnStatement*);
+void DeleteFuncInvocationNode(FunctionInvocation_node*);
+void DeleteConstantNode(Constant_node*);
+void DeleteTypeNameTable(TypeNameTable*);
+void DeleteTypeNameNode(TypeName_node*);
 
 /* Visualizing the AST */
 void DebugProgramNode(Program_node*);
@@ -101,8 +121,8 @@ void DebugParamNode(Parameter_node*, int);
 void DebugDeclNode(Declaration_node*, int);
 void DebugReturnStmt(ReturnStatement*, int);
 void DebugConstantNode(Constant_node*, int);
-void DebugFunctionInvocationNode(FunctionInvocation_node*, int);
-void DebugStructNode(StructDeclaration_node*);
+void DebugFuncInvocationNode(FunctionInvocation_node*, int);
+void DebugStructDeclNode(StructDeclaration_node*);
 
 #if 0
 long GetIntValFromConstNode(Constant_node*);

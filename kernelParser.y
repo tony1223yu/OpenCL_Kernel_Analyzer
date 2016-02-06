@@ -115,8 +115,17 @@ FunctionInvocation_node* CreateFunctionInvocation_node(char* function_name, Expr
 {
     FunctionInvocation_node* ret = (FunctionInvocation_node*) malloc(sizeof(FunctionInvocation_node));
     ret->name = function_name;
-    ret->argument_head = arguments->expression_head;
-    ret->argument_tail = arguments->expression_tail;
+    if (arguments == NULL)
+    {
+        ret->argument_head = NULL;
+        ret->argument_tail = NULL;
+    }
+    else
+    {
+        ret->argument_head = arguments->expression_head;
+        ret->argument_tail = arguments->expression_tail;
+        free (arguments);
+    }
     return ret;
 }
 
@@ -492,65 +501,198 @@ TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right
     }
     else if (left == NULL)
     {
-        ret->type = right->type;
-        ret->struct_name = right->struct_name;
-        ret->array_desc_head = right->array_desc_head;
-        ret->array_desc_tail = right->array_desc_tail;
-        ret->parameter_head = right->parameter_head;
-        ret->parameter_tail = right->parameter_tail;
-        ret->kind = right->kind;
-    }
-    else if (right == NULL)
-    {
-        ret->type = left->type;
-        ret->struct_name = left->struct_name;
-        ret->array_desc_head = left->array_desc_head;
-        ret->array_desc_tail = left->array_desc_tail;
-        ret->parameter_head = left->parameter_head;
-        ret->parameter_tail = left->parameter_tail;
-        ret->kind = left->kind;
-    }
-    else
-    {
-        /* should be left */
-        ret->type = left->type;
-        ret->struct_name = left->struct_name;
-        ret->array_desc_head = right->array_desc_head;
-        ret->array_desc_tail = right->array_desc_tail;
+        ArrayDesc_node* iterArray = right->array_desc_head;
+        Parameter_node* iterParam = right->parameter_head;
 
-        if (left->array_desc_head != NULL)
+        ret->type = right->type;
+        ret->kind = right->kind;
+        ret->array_desc_head = NULL;
+        ret->array_desc_tail = NULL;
+        ret->parameter_head = NULL;
+        ret->parameter_tail = NULL;
+
+        if (right->struct_name)
+            ret->struct_name = strdup(right->struct_name);
+        else
+            ret->struct_name = NULL;
+
+        while (iterArray != NULL)
         {
-            if (ret->array_desc_head != NULL)
+            ArrayDesc_node* tmp = DuplicateArrayDesc(iterArray);
+            if (ret->array_desc_head == NULL)
             {
-                ret->array_desc_tail->next = left->array_desc_head;
-                ret->array_desc_tail = left->array_desc_tail;
+                ret->array_desc_head = tmp;
+                ret->array_desc_tail = tmp;
             }
             else
             {
-                ret->array_desc_head = left->array_desc_head;
-                ret->array_desc_tail = left->array_desc_tail;
+                ret->array_desc_tail->next = tmp;
+                ret->array_desc_tail = tmp;
             }
+            iterArray = iterArray->next;
         }
 
-        if ((left->kind == TYPE_WITH_PARAM) && (right->kind == TYPE_WITH_PARAM))
+        while (iterParam != NULL)
         {
-            fprintf(stderr, "[Error] Redefined parameters in %s", __func__);
+            Parameter_node* tmp = DuplicateParamNode(iterParam);
+            if (ret->parameter_head == NULL)
+            {
+                ret->parameter_head = tmp;
+                ret->parameter_tail = tmp;
+            }
+            else
+            {
+                ret->parameter_tail->next = tmp;
+                ret->parameter_tail = tmp;
+            }
+            iterParam = iterParam->next;
         }
-        else if (left->kind == TYPE_WITH_PARAM)
+    }
+    else if (right == NULL)
+    {
+        ArrayDesc_node* iterArray = left->array_desc_head;
+        Parameter_node* iterParam = left->parameter_head;
+
+        ret->type = left->type;
+        ret->kind = left->kind;
+        ret->array_desc_head = NULL;
+        ret->array_desc_tail = NULL;
+        ret->parameter_head = NULL;
+        ret->parameter_tail = NULL;
+
+        if (left->struct_name)
+            ret->struct_name = strdup(left->struct_name);
+        else
+            ret->struct_name = NULL;
+
+        while (iterArray != NULL)
         {
+            ArrayDesc_node* tmp = DuplicateArrayDesc(iterArray);
+            if (ret->array_desc_head == NULL)
+            {
+                ret->array_desc_head = tmp;
+                ret->array_desc_tail = tmp;
+            }
+            else
+            {
+                ret->array_desc_tail->next = tmp;
+                ret->array_desc_tail = tmp;
+            }
+            iterArray = iterArray->next;
+        }
+
+        while (iterParam != NULL)
+        {
+            Parameter_node* tmp = DuplicateParamNode(iterParam);
+            if (ret->parameter_head == NULL)
+            {
+                ret->parameter_head = tmp;
+                ret->parameter_tail = tmp;
+            }
+            else
+            {
+                ret->parameter_tail->next = tmp;
+                ret->parameter_tail = tmp;
+            }
+            iterParam = iterParam->next;
+        }
+    }
+    else
+    {
+        ArrayDesc_node* iterArray;
+        Parameter_node* iterParam;
+
+        ret->type = left->type;
+        ret->array_desc_head = NULL;
+        ret->array_desc_tail = NULL;
+        ret->parameter_head = NULL;
+        ret->parameter_tail = NULL;
+
+        if (left->struct_name)
+            ret->struct_name = strdup(left->struct_name);
+        else
+            ret->struct_name = NULL;
+
+        if ((left->kind == TYPE_WITH_PARAM) && (right->kind == TYPE_WITH_PARAM))
+            fprintf(stderr, "[Error] Redefined parameters in %s", __func__);
+        else if ((left->kind == TYPE_WITH_PARAM) || (right->kind == TYPE_WITH_PARAM))
             ret->kind = TYPE_WITH_PARAM;
-            ret->parameter_head = left->parameter_head;
-            ret->parameter_tail = left->parameter_tail;
+        else
+            ret->kind = TYPE_WITHOUT_PARAM;
+
+        iterArray = right->array_desc_head;
+        while (iterArray != NULL)
+        {
+            ArrayDesc_node* tmp = DuplicateArrayDesc(iterArray);
+            if (ret->array_desc_head == NULL)
+            {
+                ret->array_desc_head = tmp;
+                ret->array_desc_tail = tmp;
+            }
+            else
+            {
+                ret->array_desc_tail->next = tmp;
+                ret->array_desc_tail = tmp;
+            }
+            iterArray = iterArray->next;
+        }
+        iterArray = left->array_desc_head;
+        while (iterArray != NULL)
+        {
+            ArrayDesc_node* tmp = DuplicateArrayDesc(iterArray);
+            if (ret->array_desc_head == NULL)
+            {
+                ret->array_desc_head = tmp;
+                ret->array_desc_tail = tmp;
+            }
+            else
+            {
+                ret->array_desc_tail->next = tmp;
+                ret->array_desc_tail = tmp;
+            }
+            iterArray = iterArray->next;
+        }
+
+        if (left->kind == TYPE_WITH_PARAM)
+        {
+            iterParam = left->parameter_head;
+            while (iterParam != NULL)
+            {
+                Parameter_node* tmp = DuplicateParamNode(iterParam);
+                if (ret->parameter_head == NULL)
+                {
+                    ret->parameter_head = tmp;
+                    ret->parameter_tail = tmp;
+                }
+                else
+                {
+                    ret->parameter_tail->next = tmp;
+                    ret->parameter_tail = tmp;
+                }
+                iterParam = iterParam->next;
+            }
         }
         else if (right->kind == TYPE_WITH_PARAM)
         {
-            ret->kind = TYPE_WITH_PARAM;
-            ret->parameter_head = right->parameter_head;
-            ret->parameter_tail = right->parameter_tail;
+            iterParam = right->parameter_head;
+            while (iterParam != NULL)
+            {
+                Parameter_node* tmp = DuplicateParamNode(iterParam);
+                if (ret->parameter_head == NULL)
+                {
+                    ret->parameter_head = tmp;
+                    ret->parameter_tail = tmp;
+                }
+                else
+                {
+                    ret->parameter_tail->next = tmp;
+                    ret->parameter_tail = tmp;
+                }
+                iterParam = iterParam->next;
+            }
         }
         else
         {
-            ret->kind = TYPE_WITHOUT_PARAM;
             ret->parameter_head = NULL;
             ret->parameter_tail = NULL;
         }
@@ -588,12 +730,17 @@ IterationStatement* CreateIterStmt(ITERATION_STMT_KIND kind, void* init, Express
 
 CompoundStatement* CreateCompoundStmt(Declaration_node* decl_node, Statement_node* stmt_node)
 {
-    CompoundStatement* ret = (CompoundStatement*) malloc(sizeof(CompoundStatement));
-    ret->declaration_head = decl_node;
-    ret->declaration_tail = decl_node;
-    ret->statement_head = stmt_node;
-    ret->statement_tail = stmt_node;
-    return ret;
+    if ((decl_node == NULL) && (stmt_node == NULL))
+        return NULL;
+    else
+    {
+        CompoundStatement* ret = (CompoundStatement*) malloc(sizeof(CompoundStatement));
+        ret->declaration_head = decl_node;
+        ret->declaration_tail = decl_node;
+        ret->statement_head = stmt_node;
+        ret->statement_tail = stmt_node;
+        return ret;
+    }
 }
 
 CompoundStatement* MergeCompoundStmt(CompoundStatement* left, CompoundStatement* right)
@@ -699,7 +846,7 @@ SelectionStatement* MergeSelectionStmt(SelectionStatement* left, SelectionStatem
 Function_node* CreateFunctionNode(TypeDescriptor* type, Declaration_desc_node* decl_desc, CompoundStatement* compound_stmt)
 {
     Function_node* ret = (Function_node*) malloc(sizeof(Function_node));
-    ret->function_name = decl_desc->identifier_name;
+    ret->function_name = strdup(decl_desc->identifier_name);
     if (decl_desc->identifier_type == NULL)
         fprintf(stderr, "[Error] No parameter declaration in %s\n", __func__);
     else
@@ -711,8 +858,9 @@ Function_node* CreateFunctionNode(TypeDescriptor* type, Declaration_desc_node* d
         decl_desc->identifier_type->kind = TYPE_WITHOUT_PARAM;
 
         ret->return_type = MixAndCreateTypeDesc(type, decl_desc->identifier_type);
-        free (type);
-        free (decl_desc);
+
+        DeleteTypeDesc(type);
+        DeleteDeclDescNode(decl_desc); // Error if we free decl_desc
     }
     ret->content_statement = compound_stmt;
     ret->next = NULL;
@@ -761,9 +909,19 @@ void AddStructDeclNode(Program_node* prog, char* name, Declaration_node_list* me
     {
         StructDeclaration_node* struct_decl = (StructDeclaration_node*) malloc(sizeof(StructDeclaration_node));
         struct_decl->struct_name = name;
-        struct_decl->member_head = member_list->declaration_head;
-        struct_decl->member_tail = member_list->declaration_tail;
         struct_decl->next = NULL;
+
+        if (member_list == NULL)
+        {
+            struct_decl->member_head = NULL;
+            struct_decl->member_tail = NULL;
+        }
+        else
+        {
+            struct_decl->member_head = member_list->declaration_head;
+            struct_decl->member_tail = member_list->declaration_tail;
+            free (member_list);
+        }
 
         if (prog->struct_head == NULL)
         {
@@ -802,10 +960,15 @@ void AddToTypeTable(TypeNameTable* table, TypeDescriptor* type, Declaration_desc
     else
     {
         Declaration_desc_node* iterNode = node_list->declaration_desc_head;
+        Declaration_desc_node* nextNode;
         while (iterNode != NULL)
         {
             TypeDescriptor* mix_type = MixAndCreateTypeDesc(type, iterNode->identifier_type);
-            TypeName_node* new_node = CreateTypeNameNode(iterNode->identifier_name, mix_type);
+            TypeName_node* new_node = CreateTypeNameNode(strdup(iterNode->identifier_name), mix_type);
+
+            nextNode = iterNode->next;
+            DeleteDeclDescNode(iterNode);
+
             if (table == NULL)
             {
                 fprintf(stderr, "[Error] Type name table is NULL in %s\n", __func__);
@@ -823,8 +986,10 @@ void AddToTypeTable(TypeNameTable* table, TypeDescriptor* type, Declaration_desc
                     table->type_node_tail = new_node;
                 }
             }
-            iterNode = iterNode->next;
+            iterNode = nextNode;
         }
+        DeleteTypeDesc(type);
+        free (node_list);
     }
 }
 
@@ -893,6 +1058,9 @@ ArrayDesc_node* DuplicateArrayDesc(ArrayDesc_node* array)
         ArrayDesc_node* ret = (ArrayDesc_node*) malloc(sizeof(ArrayDesc_node));
         ret->size = array->size;
         ret->desc_kind = array->desc_kind;
+        ret->parameter_head = NULL;
+        ret->parameter_tail = NULL;
+        ret->next = NULL;
 
         if (array->parameter_head != NULL)
         {
@@ -992,31 +1160,473 @@ TypeNameTable* CreateTypeNameTable(void)
     return ret;
 }
 
-#if 0
-void DeleteTypeDesc(TypeDescriptor* type)
+void DeleteProgramNode(Program_node* prog)
 {
-    if (type == NULL)
+    if (!prog)
         return;
-
-    if (type->array_desc_head != NULL)
+    else
     {
-        ArrayDesc_node* iterNode = type->array_desc_head;
-        ArrayDesc_node* nextNode;
-        while (iterNode != NULL)
+        StructDeclaration_node* iterStruct = prog->struct_head;
+        StructDeclaration_node* nextStruct;
+        Declaration_node* iterDecl = prog->declaration_head;
+        Declaration_node* nextDecl;
+        Function_node* iterFunc = prog->function_head;
+        Function_node* nextFunc;
+
+        while (iterStruct != NULL)
         {
-            /* TODO */
-            nextNode = iterNode->next;
-            free (iterNode);
-            iterNode = nextNode;
+            nextStruct = iterStruct->next;
+            DeleteStructDeclNode(iterStruct);
+            iterStruct = nextStruct;;
         }
-    }
 
-    if (type->parameter_head != NULL)
-    {
-        /* TODO */
+        while (iterDecl != NULL)
+        {
+            nextDecl = iterDecl->next;
+            DeleteDeclNode(iterDecl);
+            iterDecl = nextDecl;
+        }
+
+        while (iterFunc != NULL)
+        {
+            nextFunc = iterFunc->next;
+            DeleteFuncNode(iterFunc);
+            iterFunc = nextFunc;
+        }
+
+        free (prog);
     }
 }
-#endif
+
+void DeleteStructDeclNode(StructDeclaration_node* structDecl)
+{
+    if (!structDecl)
+        return;
+    else
+    {
+        Declaration_node* iterMember = structDecl->member_head;
+        Declaration_node* nextMember;
+
+        if (structDecl->struct_name)
+        {
+            free (structDecl->struct_name);
+            structDecl->struct_name = NULL;
+        }
+
+        while (iterMember != NULL)
+        {
+            nextMember = iterMember->next;
+            DeleteDeclNode(iterMember);
+            iterMember = nextMember;
+        }
+
+        free (structDecl);
+    }
+}
+
+void DeleteDeclNode(Declaration_node* decl)
+{
+    if (!decl)
+        return;
+    else
+    {
+        Declaration_desc_node* iterDesc = decl->declaration_desc_head;
+        Declaration_desc_node* nextDesc;
+
+        DeleteTypeDesc(decl->declaration_type);
+
+        while (iterDesc != NULL)
+        {
+            nextDesc = iterDesc->next;
+            DeleteDeclDescNode(iterDesc);
+            iterDesc = nextDesc;
+        }
+
+        free (decl);
+    }
+}
+
+void DeleteDeclDescNode(Declaration_desc_node* desc)
+{
+    if (!desc)
+        return;
+    else
+    {
+
+        if (desc->identifier_name)
+        {
+            free (desc->identifier_name);
+            desc->identifier_name = NULL;
+        }
+
+        DeleteTypeDesc(desc->identifier_type);
+        DeleteExprNode(desc->init_expression);
+
+        free (desc);
+    }
+}
+
+void DeleteFuncNode(Function_node* func)
+{
+    if (!func)
+        return;
+    else
+    {
+        Parameter_node* iterParam = func->parameter_head;
+        Parameter_node* nextParam;
+
+        if (func->function_name)
+        {
+            free (func->function_name);
+            func->function_name = NULL;
+        }
+
+        while (iterParam != NULL)
+        {
+            nextParam = iterParam->next;
+            DeleteParamNode(iterParam);
+            iterParam = nextParam;
+        }
+
+        DeleteTypeDesc(func->return_type);
+        DeleteCompoundStmt(func->content_statement);
+
+        free (func);
+    }
+}
+
+void DeleteTypeDesc(TypeDescriptor* type)
+{
+    if (!type)
+        return;
+    else
+    {
+        ArrayDesc_node* iterArray = type->array_desc_head;
+        ArrayDesc_node* nextArray;
+        Parameter_node* iterParam = type->parameter_head;
+        Parameter_node* nextParam;
+
+        if (type->struct_name)
+        {
+            free (type->struct_name);
+            type->struct_name = NULL;
+        }
+
+        while (iterArray != NULL)
+        {
+            nextArray = iterArray->next;
+            DeleteArrayDescNode(iterArray);
+            iterArray = nextArray;
+        }
+
+        while (iterParam != NULL)
+        {
+            nextParam = iterParam->next;
+            DeleteParamNode(iterParam);
+            iterParam = nextParam;
+        }
+
+        free (type);
+    }
+}
+
+void DeleteArrayDescNode(ArrayDesc_node* array)
+{
+    if (!array)
+        return;
+    else
+    {
+        Parameter_node* iterParam = array->parameter_head;
+        Parameter_node* nextParam;
+
+        while (iterParam != NULL)
+        {
+            nextParam = iterParam->next;
+            DeleteParamNode(iterParam);
+            iterParam = nextParam;
+        }
+
+        free (array);
+    }
+}
+
+void DeleteParamNode(Parameter_node* param)
+{
+    if (!param)
+        return;
+    else
+    {
+        DeleteTypeDesc(param->parameter_type);
+        DeleteDeclDescNode(param->parameter_desc);
+        free (param);
+    }
+}
+
+void DeleteStmtNode(Statement_node* stmt)
+{
+    if (!stmt)
+        return;
+    else
+    {
+        switch (stmt->statement_kind)
+        {
+            case ITERATION_STMT:
+                DeleteIterStmt(stmt->stmt.iteration_stmt);
+                break;
+            case SELECTION_STMT:
+                DeleteSelectionStmt(stmt->stmt.selection_stmt);
+                break;
+            case EXPRESSION_STMT:
+                DeleteExprStmt(stmt->stmt.expression_stmt);
+                break;
+            case RETURN_STMT:
+                DeleteCompoundStmt(stmt->stmt.compound_stmt);
+                break;
+            case COMPOUND_STMT:
+                DeleteReturnStmt(stmt->stmt.return_stmt);
+                break;
+        }
+
+        free (stmt);
+    }
+}
+
+void DeleteCompoundStmt(CompoundStatement* stmt)
+{
+    if (!stmt)
+        return;
+    else
+    {
+        Declaration_node* iterDecl = stmt->declaration_head;
+        Declaration_node* nextDecl;
+        Statement_node* iterStmt = stmt->statement_head;
+        Statement_node* nextStmt;
+
+        while (iterDecl != NULL)
+        {
+            nextDecl = iterDecl->next;
+            DeleteDeclNode(iterDecl);
+            iterDecl = nextDecl;
+        }
+
+        while (iterStmt != NULL)
+        {
+            nextStmt = iterStmt->next;
+            DeleteStmtNode(iterStmt);
+            iterStmt = nextStmt;
+        }
+
+        free (stmt);
+    }
+}
+
+void DeleteIterStmt(IterationStatement* stmt)
+{
+    if (!stmt)
+        return;
+    else
+    {
+        if (stmt->kind == FOR_LOOP_WITH_DECL)
+            DeleteDeclNode(stmt->init.declaration);
+        else
+            DeleteExprStmt(stmt->init.expression);
+
+        DeleteExprStmt(stmt->terminated_expression);
+        DeleteExprStmt(stmt->step_expression);
+        DeleteStmtNode(stmt->content_statement);
+
+        free (stmt);
+    }
+}
+
+void DeleteSelectionStmt(SelectionStatement* stmt)
+{
+    if (!stmt)
+        return;
+    else
+    {
+        Selection_node* iterSelect = stmt->selection_head;
+        Selection_node* nextSelect;
+
+        while (iterSelect != NULL)
+        {
+            nextSelect = iterSelect->next;
+            DeleteSelectionNode(iterSelect);
+            iterSelect = nextSelect;
+        }
+
+        free (stmt);
+    }
+}
+
+void DeleteSelectionNode(Selection_node* node)
+{
+    if (!node)
+        return;
+    else
+    {
+        DeleteExprStmt(node->condition_expression);
+        DeleteStmtNode(node->content_statement);
+
+        free (node);
+    }
+}
+
+void DeleteExprStmt(ExpressionStatement* stmt)
+{
+    if (!stmt)
+        return;
+    else
+    {
+        Expression_node* iterNode = stmt->expression_head;
+        Expression_node* nextNode;
+
+        while (iterNode != NULL)
+        {
+            nextNode = iterNode->next;
+            DeleteExprNode(iterNode);
+            iterNode = nextNode;
+        }
+
+        free (stmt);
+    }
+}
+
+void DeleteExprNode(Expression_node* node)
+{
+    if (!node)
+        return;
+    else
+    {
+        DeleteExprNode(node->left_operand);
+        DeleteExprNode(node->right_operand);
+
+        switch (node->expression_kind)
+        {
+            case EXPRESSION_IDENTIFIER:
+                if (node->direct_expr.identifier)
+                    free (node->direct_expr.identifier);
+                break;
+            case EXPRESSION_CONSTANT:
+                DeleteConstantNode(node->direct_expr.constant);
+                break;
+            case EXPRESSION_SUBSCRIPT:
+                DeleteExprStmt(node->direct_expr.subscript);
+                break;
+            case EXPRESSION_FUNCTION:
+                DeleteFuncInvocationNode(node->direct_expr.function);
+                break;
+            case EXPRESSION_MEMBER:
+                if (node->direct_expr.member)
+                    free (node->direct_expr.member);
+                break;
+            case EXPRESSION_TYPECAST:
+                DeleteTypeDesc(node->direct_expr.target_type);
+                break;
+            case EXPRESSION_EXPRSTMT:
+                DeleteExprStmt(node->direct_expr.expr_stmt);
+                break;
+        }
+
+        free (node);
+    }
+}
+
+void DeleteReturnStmt(ReturnStatement* stmt)
+{
+    if (!stmt)
+        return;
+    else
+    {
+        Expression_node* iterNode = stmt->expression_head;
+        Expression_node* nextNode;
+
+        while (iterNode != NULL)
+        {
+            nextNode = iterNode->next;
+            DeleteExprNode(iterNode);
+            iterNode = nextNode;
+        }
+
+        free (stmt);
+    }
+}
+
+void DeleteFuncInvocationNode(FunctionInvocation_node* node)
+{
+    if (!node)
+        return;
+    else
+    {
+        Expression_node* iterArg = node->argument_head;
+        Expression_node* nextArg;
+
+        if (node->name)
+        {
+            free (node->name);
+            node->name = NULL;
+        }
+
+        while (iterArg != NULL)
+        {
+            nextArg = iterArg->next;
+            DeleteExprNode(iterArg);
+            iterArg = nextArg;
+        }
+
+        free (node);
+    }
+}
+
+void DeleteConstantNode(Constant_node* node)
+{
+    if (!node)
+        return;
+    else
+    {
+        DeleteTypeDesc(node->constant_type);
+
+        free (node);
+    }
+}
+
+void DeleteTypeNameTable(TypeNameTable* table)
+{
+    if (!table)
+        return;
+    else
+    {
+        TypeName_node* iterNode = table->type_node_head;
+        TypeName_node* nextNode;
+
+        while (iterNode != NULL)
+        {
+            nextNode = iterNode->next;
+            DeleteTypeNameNode(iterNode);
+            iterNode = nextNode;
+        }
+
+        free (table);
+    }
+}
+
+void DeleteTypeNameNode(TypeName_node* node)
+{
+    if (!node)
+        return;
+    else
+    {
+        if (node->identifier_name)
+        {
+            free (node->identifier_name);
+            node->identifier_name = NULL;
+        }
+
+        DeleteTypeDesc(node->identifier_type);
+
+        free (node);
+    }
+}
 
 %}
 
@@ -1324,12 +1934,13 @@ constant_expression
 declaration
 	: declaration_specifiers ';'
     {
-        //DeleteTypeDesc($1);
+        DeleteTypeDesc($1);
         $$ = NULL;
     }
 	| declaration_specifiers init_declarator_list ';' {$$ = CreateDeclNode($1, $2);}
     | TYPEDEF declaration_specifiers ';'
     {
+        DeleteTypeDesc($2);
         $$ = NULL;
     }
     | TYPEDEF declaration_specifiers init_declarator_list ';'
@@ -1346,7 +1957,11 @@ declaration_specifiers
 	| type_specifier declaration_specifiers
     {
         // should not appear two type_specifier at same time
-        fprintf(stderr, "[Error] Two type specifier\n");
+        if ($2 != NULL)
+        {
+            fprintf(stderr, "[Error] Two type specifier\n");
+            DeleteTypeDesc($2);
+        }
         $$ = $1;
     }
 	| type_qualifier {$$ = NULL;}
@@ -1448,6 +2063,11 @@ specifier_qualifier_list
 	: type_specifier specifier_qualifier_list
     {
         // should not appear two type_specifier at same time
+        if ($2 != NULL)
+        {
+            fprintf(stderr, "[Error] Two type specifier\n");
+            DeleteTypeDesc($2);
+        }
         $$ = $1;
     }
 	| type_specifier {$$ = $1;}
@@ -1618,7 +2238,9 @@ type_name
 	: specifier_qualifier_list {$$ = $1;}
 	| specifier_qualifier_list abstract_declarator
     {
-        // TODO: Mix TypeDescriptor
+        $$ = MixAndCreateTypeDesc($1, $2->identifier_type);
+        DeleteTypeDesc($1);
+        DeleteDeclDescNode($2);
     }
 	;
 
