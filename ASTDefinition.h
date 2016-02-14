@@ -132,10 +132,7 @@ double GetFloatValFromConstNode(Constant_node*);
 
 enum OPENCL_DATA_TYPE
 {
-    NONE_TYPE = 0x0,
-    STRUCT_TYPE,
-    UNION_TYPE,
-    VOID_TYPE,
+    CONST_TYPE_SIZE_MASK = 0xFFF,
     CONST_SIGNED_INTEGER_MASK = 0x1000,
     BOOL_TYPE,
     CHAR_TYPE,
@@ -143,6 +140,7 @@ enum OPENCL_DATA_TYPE
     INT_TYPE,
     LONG_TYPE,
     CONST_UNSIGNED_INTEGER_MASK = 0x2000,
+    EMPTY,      /* To compare with BOOL_TYPE */
     UCHAR_TYPE,
     USHORT_TYPE,
     UINT_TYPE,
@@ -152,6 +150,10 @@ enum OPENCL_DATA_TYPE
     FLOAT_TYPE,
     DOUBLE_TYPE,
     CONST_OTHER_MASK = 0x8000,
+    NONE_TYPE,
+    STRUCT_TYPE,
+    UNION_TYPE,
+    VOID_TYPE,
     CHAR2_TYPE,
     CHAR4_TYPE,
     CHAR8_TYPE,

@@ -1,12 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ASTDefinition.h"
+#include "TraceGenerator.h"
 #include "string.h"
 
 extern int  yyparse();
 extern FILE *yyin;
 extern TypeNameTable* typeTable;
 extern Program_node* program;
+extern SymbolTable* symTable;
+extern Operation_list* opTrace;
 
 __inline__ void DebugAlignment(int align)
 {
@@ -887,12 +890,20 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
+    char funcName[100];
     yyin=fp;
 
     typeTable = CreateTypeNameTable();
     program = CreateProgramNode();
     yyparse();
     DebugProgramNode(program);
+
+    printf("Enter a function name to be traced: ");
+    scanf("%s", funcName);
+    opTrace = NULL;
+    symTable = CreateSymTable();
+    TraceFuncNode(program, funcName, NULL);
+
     DeleteTypeNameTable(typeTable);
     DeleteProgramNode(program);
     fclose(fp);
