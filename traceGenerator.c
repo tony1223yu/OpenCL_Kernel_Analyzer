@@ -4,6 +4,7 @@
 #include "TraceGenerator.h"
 
 extern SymbolTable* symTable;
+extern Operation* lastIssueOP;
 extern Operation_list* opTrace;
 extern Program_node* program;
 
@@ -61,7 +62,6 @@ void DeleteSymTableEntry(SymbolTableEntry* entry)
             DeleteSymTableEntry(iterEntry);
             iterEntry = nextEntry;
         }
-        entry->next = NULL;
 
         for (array_idx = 0 ; array_idx < entry->array_dim ; array_idx ++)
         {
@@ -70,6 +70,7 @@ void DeleteSymTableEntry(SymbolTableEntry* entry)
         free (entry->array_entry);
 
         DeleteSemanticValue(entry->value);
+        entry->next = NULL;
         if (entry->name)
             free (entry->name);
 
@@ -85,6 +86,11 @@ void DeleteSymTableLevel(SymbolTable* table)
         fprintf(stderr, "[Error] Symbol table hasn't been created yet in %s\n", __func__);
         return;
     }
+    if (!table->level_head)
+    {
+        fprintf(stderr, "[Error] No symbol table level has been created yet in %s\n", __func__);
+        return;
+    }
     else
     {
         SymbolTableLevel* curr_level = table->level_tail;
@@ -98,9 +104,14 @@ void DeleteSymTableLevel(SymbolTable* table)
             iterEntry = nextEntry;
         }
 
-        if (table->level_head != curr_level)
-            curr_level->prev->next = curr_level->next;
+        if (curr_level->prev != NULL)
+            curr_level->prev->next = NULL;
+        else
+            table->level_head = NULL;
+
+        table->level_tail = curr_level->prev;
         curr_level->next = NULL;
+        curr_level->prev = NULL;
         free (curr_level);
     }
 }
@@ -120,10 +131,9 @@ void AddEntryToSymTable(SymbolTable* table, SymbolTableEntry* new_entry)
     else
     {
         SymbolTableLevel* curr_level = table->level_tail;
-        printf("Insert entry to table ...\n");
         if (new_entry == NULL)
         {
-            fprintf(stderr, "Given symbol table entry is NULL in %s\n", __func__);
+            fprintf(stderr, "[Error] Given symbol table entry is NULL in %s\n", __func__);
         }
         if (curr_level->entry_head == NULL)
         {
@@ -153,10 +163,9 @@ void AddEntryListToSymTable(SymbolTable* table, SymbolTableEntry_list* entry_lis
     else
     {
         SymbolTableLevel* curr_level = table->level_tail;
-        printf("Insert entry list to table ...\n");
         if (entry_list == NULL)
         {
-            fprintf(stderr, "Given symbol table entry list is NULL in %s\n", __func__);
+            fprintf(stderr, "[Error] Given symbol table entry list is NULL in %s\n", __func__);
         }
         else if (curr_level->entry_head == NULL)
         {
@@ -168,6 +177,57 @@ void AddEntryListToSymTable(SymbolTable* table, SymbolTableEntry_list* entry_lis
             curr_level->entry_tail->next = entry_list->entry_head;
             curr_level->entry_tail = entry_list->entry_tail;
         }
+    }
+}
+
+Operation_list* AppendOperationToList(Operation_list* origin_list, Operation* new_op)
+{
+    if (new_op == NULL)
+        return origin_list;
+    else
+    {
+        if (origin_list == NULL)
+        {
+            Operation_list* ret = (Operation_list*) malloc(sizeof(Operation_list));
+            ret->operation_head = new_op;
+            ret->operation_tail = new_op;
+            return ret;
+        }
+        else
+        {
+            origin_list->operation_tail->next = new_op;
+            origin_list->operation_tail = new_op;
+            return origin_list;
+        }
+    }
+}
+
+Operation* CreateOperation(TypeDescriptor* type, EXPRESSION_KIND kind)
+{
+    if (!type)
+    {
+        fprintf(stderr, "[Error] Given type descriptor is NULL in %s\n", __func__);
+        return NULL;
+    }
+    else
+    {
+        Operation* ret = (Operation*) malloc(sizeof(Operation));
+
+        ret->id = g_operation_id ++;
+        ret->kind = kind;
+
+        if (type->array_desc_head != NULL)
+            ret->type = NONE_TYPE;
+        else if (type->kind == TYPE_WITH_PARAM)
+            ret->type = NONE_TYPE;
+        else
+            ret->type = type->type;
+
+        ret->issue_dep = NULL;
+        ret->structural_dep = NULL;
+        ret->data_dep_head = NULL;
+        ret->data_dep_tail = NULL;
+        return ret;
     }
 }
 
@@ -210,8 +270,40 @@ void AssignToSymTableEntry(SymbolTableEntry* entry, SemanticRepresentation* valu
     }
     else
     {
-        /* TODO type casting */
-        entry->value = DuplicateSemanticValue(value->value);
+        // Depends on variable type (stored in symbol table entry)
+        SEMANTIC_VALUE_TYPE type = TypeDescToSemanticValueType(entry->type);
+        if (entry->value)
+            DeleteSemanticValue(entry->value);
+
+        entry->value = (SemanticValue*) malloc(sizeof(SemanticValue));
+        entry->value->kind = value->value->kind;
+        entry->value->vector = value->value->vector;
+        entry->value->lastOP = value->value->lastOP;
+
+        /* Type casting */
+        entry->value->type = type;
+        if (type == VALUE_SIGNED_INTEGER)
+        {
+            long val;
+            GetValueInSemanticValue(type, value->value, &val);
+            entry->value->constVal.long_val = val;
+        }
+        else if (type == VALUE_UNSIGNED_INTEGER)
+        {
+            unsigned long val;
+            GetValueInSemanticValue(type, value->value, &val);
+            entry->value->constVal.ulong_val = val;
+        }
+        else if (type == VALUE_FLOAT)
+        {
+            double val;
+            GetValueInSemanticValue(type, value->value, &val);
+            entry->value->constVal.double_val = val;
+        }
+        else
+        {
+            memset(&(entry->value->constVal), 0, sizeof(entry->value->constVal));
+        }
     }
 }
 
@@ -222,16 +314,17 @@ SymbolTableEntry_list* AppendSymTableEntryToList(SymbolTableEntry_list* origin_l
 
     if (origin_list == NULL)
     {
-        origin_list = (SymbolTableEntry_list*) malloc(sizeof(SymbolTableEntry_list));
-        origin_list->entry_head = entry;
-        origin_list->entry_tail = entry;
+        SymbolTableEntry_list* ret = (SymbolTableEntry_list*) malloc(sizeof(SymbolTableEntry_list));
+        ret->entry_head = entry;
+        ret->entry_tail = entry;
+        return ret;
     }
     else
     {
         origin_list->entry_tail->next = entry;
         origin_list->entry_tail = entry;
+        return origin_list;
     }
-    return origin_list;
 }
 
 SymbolTableEntry* FindMemberInSymTable(SymbolTableEntry* entry, char* name)
@@ -311,18 +404,18 @@ SymbolTableEntry* CreateSymTableEntry(Program_node* prog, char* name, TypeDescri
                 TypeDescriptor* elem_type = DuplicateTypeDesc(type);
                 ArrayDesc_node* currArray = elem_type->array_desc_head;
                 elem_type->array_desc_head = elem_type->array_desc_head->next;
-                DeleteArrayDescNode(currArray);
 
                 if (currArray->size > 0)
                 {
                     ret->array_dim = currArray->size;
                     ret->array_entry = (SymbolTableEntry**) malloc(sizeof(SymbolTableEntry*) * ret->array_dim);
-                }
-                for (arrayIdx = 0 ; arrayIdx < ret->array_dim ; arrayIdx ++)
-                {
-                    (ret->array_entry)[arrayIdx] = CreateSymTableEntry(prog, NULL, DuplicateTypeDesc(elem_type));
+                    for (arrayIdx = 0 ; arrayIdx < ret->array_dim ; arrayIdx ++)
+                    {
+                        (ret->array_entry)[arrayIdx] = CreateSymTableEntry(prog, NULL, DuplicateTypeDesc(elem_type));
+                    }
                 }
                 DeleteTypeDesc(elem_type);
+                DeleteArrayDescNode(currArray);
             }
         }
         else if (type->type == STRUCT_TYPE) // array_desc is NULL
@@ -367,6 +460,47 @@ SymbolTableEntry* CreateSymTableEntry(Program_node* prog, char* name, TypeDescri
     }
 }
 
+Dependency* CreateDependency(Operation* target, unsigned long latency)
+{
+    Dependency* ret = (Dependency*) malloc(sizeof(Dependency));
+    ret->targetOP = target;
+    ret->latency = latency;
+    ret->next = NULL;
+    return ret;
+}
+
+// TODO dependency latency
+void AddDependency(Operation* source, Operation* destination, DEPENDENCY_KIND kind)
+{
+    if (!source)
+        return;
+    else
+    {
+        if (kind == ISSUE_DEPENDENCY)
+        {
+            Dependency* new_dep = CreateDependency(destination, 1);
+            source->issue_dep = new_dep;
+        }
+        else if (kind == STRUCTURAL_DEPENDENCY)
+        {
+        }
+        else if (kind == DATA_DEPENDENCY)
+        {
+            Dependency* new_dep = CreateDependency(destination, 1);
+            if (source->data_dep_head == NULL)
+            {
+                source->data_dep_head = new_dep;
+                source->data_dep_tail = new_dep;
+            }
+            else
+            {
+                source->data_dep_tail->next = new_dep;
+                source->data_dep_tail = new_dep;
+            }
+        }
+    }
+}
+
 void DeleteSemanticValue(SemanticValue* value)
 {
     if (!value)
@@ -407,6 +541,24 @@ NDRangeVector CreateEmptyNDRangeVector()
     return ret;
 }
 
+SemanticValue* CreateZeroSemanticValue(SEMANTIC_VALUE_TYPE type)
+{
+    SemanticValue* ret = (SemanticValue*) malloc(sizeof(SemanticValue));
+    ret->kind = VALUE_REGULAR;
+    ret->type = type;
+    ret->lastOP = NULL;
+    ret->vector = CreateEmptyNDRangeVector();
+    if (type == VALUE_SIGNED_INTEGER)
+        ret->constVal.long_val = 0;
+    else if (type == VALUE_UNSIGNED_INTEGER)
+        ret->constVal.ulong_val = 0;
+    else if (type == VALUE_FLOAT)
+        ret->constVal.double_val = 0;
+    else
+        memset(&(ret->constVal), 0, sizeof(ret->constVal));
+    return ret;
+}
+
 SemanticValue* CreateEmptySemanticValue()
 {
     SemanticValue* ret = (SemanticValue*) malloc(sizeof(SemanticValue));
@@ -431,7 +583,7 @@ SEMANTIC_VALUE_TYPE TypeDescToSemanticValueType(TypeDescriptor* type)
             else
                 return VALUE_POINTER;
         }
-        else if (type->parameter_head != NULL)
+        else if (type->kind == TYPE_WITH_PARAM)
         {
             return VALUE_OTHER;
         }
@@ -545,119 +697,492 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
         }
 
         SemanticRepresentation* ret = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
+        Operation* currOP = NULL;
         ret->lvalue = NULL;
         ret->next = NULL;
         ret->value = CreateEmptySemanticValue();
 
         if (kind & LOGICAL_OP_MASK)
         {
-            ret->type = CreateScalarTypeDesc(UINT_TYPE, NULL);
+            /* Logical operations would always return int */
+            ret->type = CreateScalarTypeDesc(INT_TYPE, NULL);
         }
         else
         {
+            /* Arithmetic operations would always return bigger type */
             ret->type = MergeTypeDesc(left->type, right->type);
         }
+        ret->value->type = TypeDescToSemanticValueType(ret->type);
 
-        if ((left && left->value->kind == VALUE_IRREGULAR) || (right && right->value->kind == VALUE_IRREGULAR))
-        {
+        if ((left && left->value->kind == VALUE_UNDEFINED) || (right && right->value->kind == VALUE_UNDEFINED))
+            ret->value->kind = VALUE_UNDEFINED;
+        else if ((left && left->value->kind == VALUE_IRREGULAR) || (right && right->value->kind == VALUE_IRREGULAR))
             ret->value->kind = VALUE_IRREGULAR;
-        }
-        else
+        else if (ret->value->type == VALUE_POINTER)
         {
-            ret->value->type = TypeDescToSemanticValueType(ret->type);
-            if (ret->value->type == VALUE_POINTER)
-            {
-                fprintf(stderr, "[Error] Does not support pointer arithmetic for now in %s\n", __func__);
-                ret->value->kind = VALUE_IRREGULAR;
-            }
-            else if (ret->value->type == VALUE_OTHER)
-            {
-                fprintf(stderr, "[Error] Invalid type in %s\n", __func__);
-                ret->value->kind = VALUE_IRREGULAR;
-            }
-            else
-            {
-                switch (kind)
+            fprintf(stderr, "[Error] Does not support pointer arithmetic for now in %s\n", __func__);
+            ret->value->kind = VALUE_UNDEFINED;
+        }
+        else if (ret->value->type == VALUE_OTHER)
+        {
+            fprintf(stderr, "[Error] Invalid type in %s\n", __func__);
+            ret->value->kind = VALUE_UNDEFINED;
+        }
+
+        switch (kind)
+        {
+            case ADDITION_OP:
+            case ASSIGNMENT_ADD:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
                 {
-                    case ADDITION_OP:
-                    case ASSIGNMENT_ADD:
-                        if(ret->value->type == VALUE_SIGNED_INTEGER)
-                        {
-                            long left_val, right_val;
-                            GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
-                            GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                            ret->value->constVal.long_val = left_val + right_val;
-                        }
-                        else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
-                        {
-                            unsigned long left_val, right_val;
-                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                            ret->value->constVal.ulong_val = left_val + right_val;
-                        }
-                        else if(ret->value->type == VALUE_FLOAT)
-                        {
-                            double left_val, right_val;
-                            GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
-                            GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                            ret->value->constVal.double_val = left_val + right_val;
-                         }
-                        break;
-                    case SUBTRACTION_OP:
-                    case ASSIGNMENT_SUB:
-                        break;
-                    case MULTIPLICATION_OP:
-                    case ASSIGNMENT_MUL:
-                        break;
-                    case DIVISION_OP:
-                    case ASSIGNMENT_DIV:
-                        break;
-                    case MODULAR_OP:
-                    case ASSIGNMENT_MOD:
-                        break;
-                    case POST_INCREASE_OP:
-                        break;
-                    case POST_DECREASE_OP:
-                        break;
-                    case PRE_INCREASE_OP:
-                        break;
-                    case PRE_DECREASE_OP:
-                        break;
-                    case SHIFT_LEFT_OP:
-                    case ASSIGNMENT_LEFT:
-                        break;
-                    case SHIFT_RIGHT_OP:
-                    case ASSIGNMENT_RIGHT:
-                        break;
-                    case BITWISE_AND_OP:
-                    case ASSIGNMENT_AND:
-                        break;
-                    case BITWISE_XOR_OP:
-                    case ASSIGNMENT_XOR:
-                        break;
-                    case BITWISE_OR_OP:
-                    case ASSIGNMENT_OR:
-                        break;
-                    case MEMORY_OP:
-                        break;
-                    case LESS_OP:
-                        break;
-                    case LESS_EQUAL_OP:
-                        break;
-                    case GREATER_OP:
-                        break;
-                    case GREATER_EQUAL_OP:
-                        break;
-                    case EQUAL_OP:
-                        break;
-                    case NOT_EQUAL_OP:
-                        break;
-                    case LOGICAL_AND_OP:
-                        break;
-                    case LOGICAL_OR_OP:
-                        break;
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val + right_val);
                 }
-            }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.ulong_val = (left_val + right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.double_val = (left_val + right_val);
+                }
+                currOP = CreateOperation(ret->type, ADDITION_OP);
+                break;
+            case SUBTRACTION_OP:
+            case ASSIGNMENT_SUB:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val - right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.ulong_val = (left_val - right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.double_val = (left_val - right_val);
+                }
+                currOP = CreateOperation(ret->type, SUBTRACTION_OP);
+                break;
+            case MULTIPLICATION_OP:
+            case ASSIGNMENT_MUL:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val * right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.ulong_val = (left_val * right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.double_val = (left_val * right_val);
+                }
+                currOP = CreateOperation(ret->type, MULTIPLICATION_OP);
+                break;
+            case DIVISION_OP:
+            case ASSIGNMENT_DIV:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val / right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.ulong_val = (left_val / right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.double_val = (left_val / right_val);
+                }
+                currOP = CreateOperation(ret->type, DIVISION_OP);
+                break;
+            case MODULAR_OP:
+            case ASSIGNMENT_MOD:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val % right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.ulong_val = (left_val % right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    fprintf(stderr, "[Error] Invalid operand type for operator \"%%\" in %s\n", __func__);
+                }
+                currOP = CreateOperation(ret->type, MODULAR_OP);
+                break;
+            case POST_INCREASE_OP:
+                break;
+            case POST_DECREASE_OP:
+                break;
+            case PRE_INCREASE_OP:
+                break;
+            case PRE_DECREASE_OP:
+                break;
+            case SHIFT_LEFT_OP:
+            case ASSIGNMENT_LEFT:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val << right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.ulong_val = (left_val << right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    fprintf(stderr, "[Error] Invalid operand type for operator \"<<\" in %s\n", __func__);
+                }
+                currOP = CreateOperation(ret->type, SHIFT_LEFT_OP);
+                break;
+            case SHIFT_RIGHT_OP:
+            case ASSIGNMENT_RIGHT:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val >> right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.ulong_val = (left_val >> right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    fprintf(stderr, "[Error] Invalid operand type for operator \">>\" in %s\n", __func__);
+                }
+                currOP = CreateOperation(ret->type, SHIFT_RIGHT_OP);
+                break;
+            case BITWISE_AND_OP:
+            case ASSIGNMENT_AND:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val & right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.ulong_val = (left_val & right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    fprintf(stderr, "[Error] Invalid operand type for operator \"&\" in %s\n", __func__);
+                }
+                currOP = CreateOperation(ret->type, BITWISE_AND_OP);
+                break;
+            case BITWISE_XOR_OP:
+            case ASSIGNMENT_XOR:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val ^ right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.ulong_val = (left_val ^ right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    fprintf(stderr, "[Error] Invalid operand type for operator \"^\" in %s\n", __func__);
+                }
+                currOP = CreateOperation(ret->type, BITWISE_XOR_OP);
+                break;
+            case BITWISE_OR_OP:
+            case ASSIGNMENT_OR:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val | right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.ulong_val = (left_val | right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    fprintf(stderr, "[Error] Invalid operand type for operator \"|\" in %s\n", __func__);
+                }
+                currOP = CreateOperation(ret->type, BITWISE_OR_OP);
+                break;
+            case LESS_OP:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val < right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val < right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val < right_val);
+                }
+                currOP = CreateOperation(ret->type, LESS_OP);
+                break;
+            case LESS_EQUAL_OP:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val <= right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val <= right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val <= right_val);
+                }
+                currOP = CreateOperation(ret->type, LESS_EQUAL_OP);
+                break;
+            case GREATER_OP:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val > right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val > right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val > right_val);
+                }
+                currOP = CreateOperation(ret->type, GREATER_OP);
+                break;
+            case GREATER_EQUAL_OP:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val >= right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val >= right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val >= right_val);
+                }
+                currOP = CreateOperation(ret->type, GREATER_EQUAL_OP);
+                break;
+            case EQUAL_OP:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val == right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val == right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val == right_val);
+                }
+                currOP = CreateOperation(ret->type, EQUAL_OP);
+                break;
+            case NOT_EQUAL_OP:
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val != right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val != right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val != right_val);
+                }
+                currOP = CreateOperation(ret->type, NOT_EQUAL_OP);
+                break;
+            case LOGICAL_AND_OP: // TODO lazy evaluation
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val && right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val && right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val && right_val);
+                }
+                currOP = CreateOperation(ret->type, LOGICAL_AND_OP);
+                break;
+            case LOGICAL_OR_OP: // TODO lazy evaluation
+                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val || right_val);
+                }
+                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val, right_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val || right_val);
+                }
+                else if(ret->value->type == VALUE_FLOAT)
+                {
+                    double left_val, right_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
+                    ret->value->constVal.long_val = (left_val || right_val);
+                }
+                currOP = CreateOperation(ret->type, LOGICAL_OR_OP);
+                break;
+            default:
+                break;
+        }
+
+        // TODO dependency
+
+        if (currOP != NULL)
+        {
+            if (left && left->value)
+                AddDependency(left->value->lastOP, currOP, DATA_DEPENDENCY);
+
+            if (right && right->value)
+                AddDependency(right->value->lastOP, currOP, DATA_DEPENDENCY);
+
+            AddDependency(lastIssueOP, currOP, ISSUE_DEPENDENCY);
+            lastIssueOP = currOP;
+
+            opTrace = AppendOperationToList(opTrace, currOP);
+
+            ret->value->lastOP = currOP;
         }
         return ret;
     }
@@ -674,7 +1199,7 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
 
         if (node->expression_kind & EXPRESSION_MASK)
         {
-            SemanticRepresentation* result;
+            SemanticRepresentation* result = NULL;
             switch (node->expression_kind)
             {
                 case EXPRESSION_IDENTIFIER:
@@ -693,7 +1218,10 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                         if (entry->value)
                             result->value = DuplicateSemanticValue(entry->value);
                         else
-                            result->value = CreateEmptySemanticValue();
+                        {
+                            fprintf(stderr, "[Error] Identifier \'%s\' in symbol table has a NULL semantic value in %s\n", node->direct_expr.identifier, __func__);
+                            result->value = NULL;
+                        }
                     }
                     break;
                 case EXPRESSION_CONSTANT:
@@ -737,6 +1265,15 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                 case EXPRESSION_TYPECAST:
                     break;
                 case EXPRESSION_EXPRSTMT:
+                    {
+                        StmtRepresentation* stmtVal = TraceExpressionStmt(node->direct_expr.expr_stmt);
+                        if (stmtVal != NULL)
+                        {
+                            result = stmtVal->expression;
+                            stmtVal->expression = NULL;
+                            DeleteStmtRepresentation(stmtVal);
+                        }
+                    }
                     break;
             }
             return result;
@@ -749,6 +1286,24 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                 fprintf(stderr, "[Error] Assignment to non lvalue in %s\n", __func__);
             else
             {
+                if (result->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->value, &val);
+                    printf("Assign value : %ld\n", val);
+                }
+                else if (result->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, result->value, &val);
+                    printf("Assign value : %lu\n", val);
+                }
+                else if (result->value->type == VALUE_FLOAT)
+                {
+                    double val;
+                    GetValueInSemanticValue(VALUE_FLOAT, result->value, &val);
+                    printf("Assign value : %lf\n", val);
+                }
                 AssignToSymTableEntry(left_value->lvalue, result);
             }
 
@@ -760,7 +1315,6 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
         else // OP_MASK
         {
             SemanticRepresentation* result = CalculateSemanticRepresentation(node->expression_kind, left_value, right_value);
-            printf(".... Compute arithmetic operation ....\n");
 
             DeleteSemanticRepresentation(left_value);
             DeleteSemanticRepresentation(right_value);
@@ -775,7 +1329,6 @@ SymbolTableEntry_list* TraceDeclNode(Declaration_node* node)
         return NULL;
     else
     {
-        printf("Tracing declaration node\n");
         SymbolTableEntry_list* ret = NULL;
         Declaration_desc_node* iterDesc = node->declaration_desc_head;
         while (iterDesc != NULL)
@@ -783,32 +1336,222 @@ SymbolTableEntry_list* TraceDeclNode(Declaration_node* node)
             SymbolTableEntry* entry;
             TypeDescriptor* mix_type = MixAndCreateTypeDesc(node->declaration_type, iterDesc->identifier_type);
 
-            entry = CreateSymTableEntry(program, iterDesc->identifier_name, mix_type);
+            entry = CreateSymTableEntry(program, strdup(iterDesc->identifier_name), mix_type);
             ret = AppendSymTableEntryToList(ret, entry);
 
             if (iterDesc->init_expression)
             {
                 SemanticRepresentation* init_value = TraceExprNode(iterDesc->init_expression);
+
+                if (init_value->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, init_value->value, &val);
+                    printf("Initial value : %ld\n", val);
+                }
+                else if (init_value->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, init_value->value, &val);
+                    printf("Initial value : %lu\n", val);
+                }
+                else if (init_value->value->type == VALUE_FLOAT)
+                {
+                    double val;
+                    GetValueInSemanticValue(VALUE_FLOAT, init_value->value, &val);
+                    printf("Initial value : %lf\n", val);
+                }
+
                 AssignToSymTableEntry(entry, init_value);
                 DeleteSemanticRepresentation(init_value);
+            }
+            else
+            {
+                SEMANTIC_VALUE_TYPE type = TypeDescToSemanticValueType(entry->type);
+                entry->value = CreateZeroSemanticValue(type);
             }
 
             iterDesc = iterDesc->next;
         }
-        printf("Tracing declaration node end\n");
         return ret;
     }
 }
 
-// Symbol table level should be created by caller
-void TraceCompoundStmt(CompoundStatement* stmt)
+StmtRepresentation* CreateStmtRepresentation(STATEMENT_KIND kind, SemanticRepresentation* value)
+{
+    StmtRepresentation* ret = (StmtRepresentation*) malloc(sizeof(StmtRepresentation));
+    ret->kind = kind;
+    ret->expression = value;
+    return ret;
+}
+
+void DeleteStmtRepresentation(StmtRepresentation* rep)
+{
+    if (rep == NULL)
+        return;
+    else
+    {
+        DeleteSemanticRepresentation(rep->expression);
+        free (rep);
+    }
+}
+
+StmtRepresentation* TraceStmtNode(Statement_node* node)
+{
+    if (!node)
+        return NULL;
+    else
+    {
+        StmtRepresentation* result = NULL;
+        switch (node->statement_kind)
+        {
+            case ITERATION_STMT:
+                result = TraceIterationStmt(node->stmt.iteration_stmt);
+                break;
+            case SELECTION_STMT:
+                break;
+            case EXPRESSION_STMT:
+                result = TraceExpressionStmt(node->stmt.expression_stmt);
+                break;
+            case RETURN_STMT:
+                break;
+            case COMPOUND_STMT:
+                CreateSymTableLevel(symTable);
+                result = TraceCompoundStmt(node->stmt.compound_stmt);
+                DeleteSymTableLevel(symTable);
+                break;
+            case EMPTY_GOTO_STMT:
+                fprintf(stderr, "[Error] Does not support GOTO statement for now\n");
+                break;
+            case EMPTY_CONTINUE_STMT:
+            case EMPTY_BREAK_STMT:
+            case EMPTY_RETURN_STMT:
+                result = CreateStmtRepresentation(node->statement_kind, NULL);
+                break;
+        }
+        return result;
+    }
+}
+
+StmtRepresentation* TraceIterationStmt(IterationStatement* stmt)
 {
     if (!stmt)
-        return;
+        return NULL;
+    else
+    {
+        int loop_terminated = 0;
+        StmtRepresentation* returnVal = NULL;
+
+        /* INIT */
+
+        if (stmt->kind == FOR_LOOP_WITH_DECL)
+        {
+            SymbolTableEntry_list* entry_list = NULL;
+            CreateSymTableLevel(symTable);
+            entry_list = TraceDeclNode(stmt->init.declaration);
+            AddEntryListToSymTable(symTable, entry_list);
+        }
+        else
+        {
+            StmtRepresentation* result = TraceExpressionStmt(stmt->init.expression);
+            DeleteStmtRepresentation(result);
+        }
+
+        /* CONTENT */
+
+        if (stmt->kind != DO_WHILE_LOOP) // check the condition first
+        {
+            StmtRepresentation* result = TraceExpressionStmt(stmt->terminated_expression);
+            if (result && result->expression)
+            {
+                long terminated_value;
+                GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->expression->value, &terminated_value);
+                if (!terminated_value)
+                    loop_terminated = 1;
+            }
+            DeleteStmtRepresentation(result);
+        }
+
+        while (!loop_terminated)
+        {
+            StmtRepresentation* result;
+
+            result = TraceStmtNode(stmt->content_statement);
+            if (result && (result->kind = CONTROL_STMT_MASK))
+            {
+                switch (result->kind)
+                {
+                    case EMPTY_CONTINUE_STMT:
+                        break;
+                    case EMPTY_BREAK_STMT:
+                        loop_terminated = 1;
+                        break;
+                    case EMPTY_RETURN_STMT:
+                    case RETURN_STMT:
+                        loop_terminated = 1;
+                        returnVal = result;
+                        result = NULL;
+                        break;
+                }
+            }
+            DeleteStmtRepresentation(result);
+
+            result = TraceExpressionStmt(stmt->step_expression);
+            DeleteStmtRepresentation(result);
+
+            result = TraceExpressionStmt(stmt->terminated_expression);
+            if (result && result->expression)
+            {
+                long terminated_value;
+                GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->expression->value, &terminated_value);
+                if (!terminated_value)
+                    loop_terminated = 1;
+            }
+            DeleteStmtRepresentation(result);
+        }
+
+        /* CLEANUP */
+
+        if (stmt->kind == FOR_LOOP_WITH_DECL)
+        {
+            DeleteSymTableLevel(symTable);
+        }
+
+        if (returnVal == NULL)
+            returnVal = CreateStmtRepresentation(ITERATION_STMT, NULL);
+
+        return returnVal;
+    }
+}
+
+StmtRepresentation* TraceExpressionStmt(ExpressionStatement* stmt)
+{
+    if (!stmt)
+        return NULL;
+    else
+    {
+        Expression_node* iterNode = stmt->expression_head;
+        SemanticRepresentation* resultVal = NULL;
+        while (iterNode != NULL)
+        {
+            DeleteSemanticRepresentation(resultVal);
+            resultVal = TraceExprNode(iterNode);
+            iterNode = iterNode->next;
+        }
+        return CreateStmtRepresentation(EXPRESSION_STMT, resultVal);
+    }
+}
+
+// Symbol table level should be created by caller
+StmtRepresentation* TraceCompoundStmt(CompoundStatement* stmt)
+{
+    if (!stmt)
+        return NULL;
     else
     {
         Declaration_node* iterDecl = stmt->declaration_head;
         Statement_node* iterStmt = stmt->statement_head;
+        StmtRepresentation* result = NULL;
         while (iterDecl != NULL)
         {
             SymbolTableEntry_list* entry_list = TraceDeclNode(iterDecl);
@@ -817,9 +1560,16 @@ void TraceCompoundStmt(CompoundStatement* stmt)
         }
         while (iterStmt != NULL)
         {
-            //TraceStmtNode(iterDecl);
+            result = TraceStmtNode(iterStmt);
+
+            if (result && (result->kind & CONTROL_STMT_MASK))
+                return result;
+            else
+                DeleteStmtRepresentation(result);
+
             iterStmt = iterStmt->next;
         }
+        return CreateStmtRepresentation(COMPOUND_STMT, NULL);
     }
 }
 
@@ -866,5 +1616,36 @@ void TraceFuncNode(Program_node* prog, char* func_name, SemanticRepresentation_l
 
         TraceCompoundStmt(func->content_statement);
         DeleteSymTableLevel(symTable);
+    }
+}
+
+void ShowOPTrace(Operation_list* list)
+{
+    Operation* iterOP;
+
+    printf("\n\n========== Operation trace ==========\n\n");
+    if (list != NULL)
+    {
+        Operation* iterOP = list->operation_head;
+        while (iterOP != NULL)
+        {
+            printf("[#%lu] %d ", iterOP->id, iterOP->kind);
+            if (iterOP->issue_dep)
+                printf("issue: #%lu, ", iterOP->issue_dep->targetOP->id);
+            if (iterOP->structural_dep)
+                printf("struct #%lu, ", iterOP->structural_dep->targetOP->id);
+            if (iterOP->data_dep_head)
+            {
+                Dependency* iterDep = iterOP->data_dep_head;
+                printf("data ");
+                while (iterDep != NULL)
+                {
+                    printf("#%lu ", iterDep->targetOP->id);
+                    iterDep = iterDep->next;
+                }
+            }
+            printf("\n");
+            iterOP = iterOP->next;
+        }
     }
 }

@@ -10,7 +10,6 @@ typedef struct Function_node Function_node;
 typedef struct Parameter_node Parameter_node;
 typedef struct Declaration_node Declaration_node;
 typedef struct Statement_node Statement_node;
-typedef struct ReturnStatement ReturnStatement;
 typedef struct ExpressionStatement ExpressionStatement;
 typedef struct IterationStatement IterationStatement;
 typedef struct SelectionStatement SelectionStatement;
@@ -99,7 +98,6 @@ void DeleteSelectionStmt(SelectionStatement*);
 void DeleteSelectionNode(Selection_node*);
 void DeleteExprStmt(ExpressionStatement*);
 void DeleteExprNode(Expression_node*);
-void DeleteReturnStmt(ReturnStatement*);
 void DeleteFuncInvocationNode(FunctionInvocation_node*);
 void DeleteConstantNode(Constant_node*);
 void DeleteTypeNameTable(TypeNameTable*);
@@ -119,7 +117,6 @@ void DebugTypeDesc(TypeDescriptor*, char*);
 void DebugExprKind(EXPRESSION_KIND, char*);
 void DebugParamNode(Parameter_node*, int);
 void DebugDeclNode(Declaration_node*, int);
-void DebugReturnStmt(ReturnStatement*, int);
 void DebugConstantNode(Constant_node*, int);
 void DebugFuncInvocationNode(FunctionInvocation_node*, int);
 void DebugStructDeclNode(StructDeclaration_node*);
@@ -205,16 +202,15 @@ enum EXPRESSION_KIND
     MULTIPLICATION_OP,
     DIVISION_OP,
     MODULAR_OP,
+    SHIFT_LEFT_OP,
+    SHIFT_RIGHT_OP,
     POST_INCREASE_OP,
     POST_DECREASE_OP,
     PRE_INCREASE_OP,
     PRE_DECREASE_OP,
-    SHIFT_LEFT_OP,
-    SHIFT_RIGHT_OP,
     BITWISE_AND_OP,
     BITWISE_XOR_OP,
     BITWISE_OR_OP,
-    MEMORY_OP,
 
     LOGICAL_OP_MASK = 0x2000,
     LESS_OP,
@@ -237,11 +233,11 @@ enum EXPRESSION_KIND
 
     ASSIGNMENT_MASK = 0x8000,
     ASSIGNMENT_NONE,
+    ASSIGNMENT_ADD,
+    ASSIGNMENT_SUB,
     ASSIGNMENT_MUL,
     ASSIGNMENT_DIV,
     ASSIGNMENT_MOD,
-    ASSIGNMENT_ADD,
-    ASSIGNMENT_SUB,
     ASSIGNMENT_LEFT,
     ASSIGNMENT_RIGHT,
 
@@ -280,14 +276,15 @@ enum SELECTION_KIND
 
 enum STATEMENT_KIND
 {
+    NORMAL_STMT_MASK = 0x1000,
     /* w/ stmt desc */
     ITERATION_STMT,
     SELECTION_STMT,
     EXPRESSION_STMT,
-    RETURN_STMT, /* with return expression */
     COMPOUND_STMT,
-
-    /* w/o stmt desc */
+    
+    CONTROL_STMT_MASK = 0x2000,
+    RETURN_STMT, /* with return expression */
     EMPTY_GOTO_STMT,
     EMPTY_CONTINUE_STMT,
     EMPTY_BREAK_STMT,
@@ -416,7 +413,7 @@ struct Statement_node
         SelectionStatement* selection_stmt;
         ExpressionStatement* expression_stmt;
         CompoundStatement* compound_stmt;
-        ReturnStatement* return_stmt;
+        ExpressionStatement* return_stmt;
     } stmt;
     Statement_node* next;
 };
@@ -427,13 +424,6 @@ struct CompoundStatement
     Declaration_node* declaration_tail;
     Statement_node* statement_head;
     Statement_node* statement_tail;
-};
-
-struct ReturnStatement
-{
-    /* should be left to right, and return the value of rightmost expression */
-    Expression_node* expression_head;
-    Expression_node* expression_tail;
 };
 
 struct ExpressionStatement

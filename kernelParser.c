@@ -230,7 +230,9 @@ void DebugStmtNode(Statement_node* stmt, int align)
                 DebugExprStmt(stmt->stmt.expression_stmt, align);
                 break;
             case RETURN_STMT:
-                DebugReturnStmt(stmt->stmt.return_stmt, align);
+                DebugAlignment(align);
+                printf("[RETURN]\n");
+                DebugExprStmt(stmt->stmt.return_stmt, align+1);
                 break;
             case COMPOUND_STMT:
                 DebugCompoundStmt(stmt->stmt.compound_stmt, align);
@@ -253,7 +255,7 @@ void DebugIterStmt(IterationStatement* stmt, int align)
         {
             case FOR_LOOP_WITH_DECL:
                 DebugAlignment(align);
-                printf("[FOR LOOP]\n");
+                printf("[FOR LOOP W/ DECL]\n");
                 DebugAlignment(align);
                 printf("[Initial]\n");
                 DebugDeclNode(stmt->init.declaration, align+1);
@@ -266,7 +268,7 @@ void DebugIterStmt(IterationStatement* stmt, int align)
                 break;
             case FOR_LOOP_WITHOUT_DECL:
                 DebugAlignment(align);
-                printf("[FOR LOOP]\n");
+                printf("[FOR LOOP W/O DECL]\n");
                 DebugAlignment(align);
                 printf("[Initial]\n");
                 DebugExprStmt(stmt->init.expression, align+1);
@@ -544,9 +546,6 @@ void DebugExprKind(EXPRESSION_KIND kind, char* name)
         case LOGICAL_OR_OP:
 			sprintf(name, "LOGICAL_OR_OP");
 			break;
-        case MEMORY_OP:
-			sprintf(name, "MEMORY_OP");
-			break;
         case ASSIGNMENT_NONE:
 			sprintf(name, "ASSIGNMENT_NONE");
 			break;
@@ -816,22 +815,6 @@ void DebugTypeDesc(TypeDescriptor* type, char* name)
     }
 }
 
-void DebugReturnStmt(ReturnStatement* stmt, int align)
-{
-    if (!stmt) return;
-    else
-    {
-        Expression_node* iterExpr = stmt->expression_head;
-        DebugAlignment(align);
-        printf("[RETURN]\n");
-        while (iterExpr)
-        {
-            DebugExprNode(iterExpr, align+1);
-            iterExpr = iterExpr->next;
-        }
-    }
-}
-
 void DebugConstantNode(Constant_node* node, int align)
 {
     if (!node) return;
@@ -902,7 +885,12 @@ int main(int argc, char *argv[])
     scanf("%s", funcName);
     opTrace = NULL;
     symTable = CreateSymTable();
+    g_operation_id = 0;
+    lastIssueOP = NULL;
     TraceFuncNode(program, funcName, NULL);
+    ShowOPTrace(opTrace);
+
+    /* Delete Symbol Table */
 
     DeleteTypeNameTable(typeTable);
     DeleteProgramNode(program);

@@ -184,10 +184,13 @@ Statement_node* CreateStmtNode(void* ptr, STATEMENT_KIND kind)
             ret->stmt.expression_stmt = (ExpressionStatement*)(ptr);
             break;
         case RETURN_STMT:
-            ret->stmt.return_stmt = (ReturnStatement*)(ptr);
+            ret->stmt.return_stmt = (ExpressionStatement*)(ptr);
             break;
         case COMPOUND_STMT:
             ret->stmt.compound_stmt = (CompoundStatement*)(ptr);
+            break;
+        default:
+            memset(&(ret->stmt), 0, sizeof(ret->stmt));
             break;
     }
     return ret;
@@ -721,6 +724,7 @@ IterationStatement* CreateIterStmt(ITERATION_STMT_KIND kind, void* init, Express
         ret->init.expression = (ExpressionStatement*) init;
     }
 
+    ret->kind = kind;
     ret->terminated_expression = terminated;
     ret->step_expression = step;
     ret->content_statement = content;
@@ -1379,11 +1383,11 @@ void DeleteStmtNode(Statement_node* stmt)
             case EXPRESSION_STMT:
                 DeleteExprStmt(stmt->stmt.expression_stmt);
                 break;
-            case RETURN_STMT:
+            case COMPOUND_STMT:
                 DeleteCompoundStmt(stmt->stmt.compound_stmt);
                 break;
-            case COMPOUND_STMT:
-                DeleteReturnStmt(stmt->stmt.return_stmt);
+            case RETURN_STMT:
+                DeleteExprStmt(stmt->stmt.return_stmt);
                 break;
         }
 
@@ -1532,26 +1536,6 @@ void DeleteExprNode(Expression_node* node)
     }
 }
 
-void DeleteReturnStmt(ReturnStatement* stmt)
-{
-    if (!stmt)
-        return;
-    else
-    {
-        Expression_node* iterNode = stmt->expression_head;
-        Expression_node* nextNode;
-
-        while (iterNode != NULL)
-        {
-            nextNode = iterNode->next;
-            DeleteExprNode(iterNode);
-            iterNode = nextNode;
-        }
-
-        free (stmt);
-    }
-}
-
 void DeleteFuncInvocationNode(FunctionInvocation_node* node)
 {
     if (!node)
@@ -1647,7 +1631,6 @@ void DeleteTypeNameNode(TypeName_node* node)
     IterationStatement* iter_stmt;
     SelectionStatement* sel_stmt;
     CompoundStatement* comp_stmt;
-    ReturnStatement* ret_stmt;
     Expression_node_list* expr_node_list;
     EXPRESSION_KIND expr_kind;
     Expression_node* expr_node;
@@ -1729,6 +1712,7 @@ postfix_expression
     }
     | postfix_expression PTR_OP IDENTIFIER
 	{
+        /* TODO Add another EXPRESSION_KIND */
         $$ = CreateDirectExprNode($3, $1, NULL, EXPRESSION_MEMBER);
     }
     | postfix_expression INC_OP
@@ -1891,7 +1875,7 @@ logical_or_expression
 	: logical_and_expression {$$ = $1;}
 	| logical_or_expression OR_OP logical_and_expression
     {
-        $$ = CreateNormalExprNode(LOGICAL_AND_OP, $1, $3);
+        $$ = CreateNormalExprNode(LOGICAL_OR_OP, $1, $3);
     }
 	;
 
@@ -2416,11 +2400,11 @@ iteration_statement
 	;
 
 jump_statement
-	: GOTO IDENTIFIER ';'
-	| CONTINUE ';'
-	| BREAK ';'
-	| RETURN ';'
-	| RETURN expression ';'
+	: GOTO IDENTIFIER ';' {$$ = CreateStmtNode(NULL, EMPTY_GOTO_STMT);}
+	| CONTINUE ';' {$$ = CreateStmtNode(NULL, EMPTY_CONTINUE_STMT);}
+	| BREAK ';' {$$ = CreateStmtNode(NULL, EMPTY_BREAK_STMT);}
+	| RETURN ';' {$$ = CreateStmtNode(NULL, EMPTY_RETURN_STMT);}
+	| RETURN expression ';' {$$ = CreateStmtNode($2, RETURN_STMT);}
 	;
 
 translation_unit

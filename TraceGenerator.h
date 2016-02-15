@@ -14,13 +14,18 @@ typedef struct NDRangeVector NDRangeVector;
 typedef struct SemanticValue SemanticValue;
 typedef struct SemanticRepresentation SemanticRepresentation;
 typedef struct SemanticRepresentation_list SemanticRepresentation_list;
+typedef struct StmtRepresentation StmtRepresentation;
 
 typedef enum SEMANTIC_VALUE_KIND SEMANTIC_VALUE_KIND;
 typedef enum SEMANTIC_VALUE_TYPE SEMANTIC_VALUE_TYPE;
+typedef enum DEPENDENCY_KIND DEPENDENCY_KIND;
 
 SymbolTable* symTable;
+Operation* lastIssueOP;
 Operation_list* opTrace;
+unsigned long g_operation_id;
 
+void showOPTrace(Operation_list*);
 SymbolTable* CreateSymTable();
 void CreateSymbolTableLevel(SymbolTable*);
 void DeleteSymTableLevel(SymbolTable*);
@@ -35,7 +40,12 @@ void DeleteSymTableEntry(SymbolTableEntry*);
 void DeleteSemanticRepresentation(SemanticRepresentation*);
 void DeleteSemanticValue(SemanticValue*);
 void TraceFuncNode(Program_node*, char*, SemanticRepresentation_list*);
-void TraceCompoundStmt(CompoundStatement*);
+StmtRepresentation* CreateStmtRepresentation(STATEMENT_KIND, SemanticRepresentation*);
+void DeleteStmtRepresentation(StmtRepresentation*);
+StmtRepresentation* TraceCompoundStmt(CompoundStatement*);
+StmtRepresentation* TraceIterationStmt(IterationStatement*);
+StmtRepresentation* TraceStmtNode(Statement_node*);
+StmtRepresentation* TraceExpressionStmt(ExpressionStatement*);
 SemanticRepresentation* TraceExprNode(Expression_node*);
 SymbolTableEntry_list* TraceDeclNode(Declaration_node*);
 SemanticRepresentation* TraceExprNode(Expression_node*);
@@ -47,6 +57,10 @@ NDRangeVector CreateEmptyNDRangeVector(void);
 SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND, SemanticRepresentation*, SemanticRepresentation*);
 SymbolTableEntry* FindSymbolInSymTable(SymbolTable*, char*);
 SymbolTableEntry* FindMemberInSymTable(SymbolTableEntry*, char*);
+Operation* CreateOperation(TypeDescriptor*, EXPRESSION_KIND);
+Operation_list* AppendOperationToList(Operation_list*, Operation*);
+void AddDependency(Operation*, Operation*, DEPENDENCY_KIND);
+Dependency* CreateDependency(Operation*, unsigned long);
 
 enum SEMANTIC_VALUE_KIND
 {
@@ -62,6 +76,19 @@ enum SEMANTIC_VALUE_TYPE
     VALUE_FLOAT,
     VALUE_POINTER,
     VALUE_OTHER
+};
+
+enum DEPENDENCY_KIND
+{
+    ISSUE_DEPENDENCY = 0,
+    STRUCTURAL_DEPENDENCY,
+    DATA_DEPENDENCY
+};
+
+struct StmtRepresentation
+{
+    STATEMENT_KIND kind;
+    SemanticRepresentation* expression;
 };
 
 struct SemanticRepresentation_list
@@ -109,12 +136,13 @@ struct Dependency
     // Point to later operation
     Operation* targetOP;
     unsigned long latency;
+    Dependency* next;
 };
 
 struct Operation_list
 {
-    Operation* op_head;
-    Operation* op_tail;
+    Operation* operation_head;
+    Operation* operation_tail;
 };
 
 struct Operation
@@ -123,10 +151,10 @@ struct Operation
     EXPRESSION_KIND kind;
     OPENCL_DATA_TYPE type;
 
-    Dependency* issue_dep;
     Dependency* structural_dep;
-    Dependency* data_left_dep;
-    Dependency* data_right_dep;
+    Dependency* data_dep_head;
+    Dependency* data_dep_tail;
+    Dependency* issue_dep;
 
     Operation* next;
 };
