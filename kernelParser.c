@@ -230,9 +230,7 @@ void DebugStmtNode(Statement_node* stmt, int align)
                 DebugExprStmt(stmt->stmt.expression_stmt, align);
                 break;
             case RETURN_STMT:
-                DebugAlignment(align);
-                printf("[RETURN]\n");
-                DebugExprStmt(stmt->stmt.return_stmt, align+1);
+                DebugReturnStmt(stmt->stmt.return_stmt, align);
                 break;
             case COMPOUND_STMT:
                 DebugCompoundStmt(stmt->stmt.compound_stmt, align);
@@ -361,6 +359,24 @@ void DebugSelectionNode(Selection_node* node, int align)
         DebugAlignment(align);
         printf("[Content]\n");
         DebugStmtNode(node->content_statement, align+1);
+    }
+}
+
+void DebugReturnStmt(ReturnStatement* stmt, int align)
+{
+    if (!stmt) return;
+    else
+    {
+        Expression_node* iterNode = stmt->expression_head;
+        DebugAlignment(align);
+        printf("[RETURN]\n");
+        while (iterNode)
+        {
+            DebugAlignment(align);
+            printf("[Expression]\n");
+            DebugExprNode(iterNode, align+1);
+            iterNode = iterNode->next;
+        }
     }
 }
 
@@ -883,6 +899,8 @@ int main(int argc, char *argv[])
     }
 
     char funcName[100];
+    StmtRepresentation* result = NULL;
+
     yyin=fp;
 
     typeTable = CreateTypeNameTable();
@@ -896,7 +914,9 @@ int main(int argc, char *argv[])
     symTable = CreateSymTable();
     g_operation_id = 0;
     lastIssueOP = NULL;
-    TraceFuncNode(program, funcName, NULL);
+
+    result = TraceFuncNode(program, funcName, NULL);
+    DeleteStmtRepresentation(result);
     ShowOPTrace(opTrace);
 
     /* Delete Symbol Table */

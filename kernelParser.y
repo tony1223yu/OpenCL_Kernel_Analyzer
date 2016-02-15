@@ -166,6 +166,20 @@ ExpressionStatement* AddToExprStmt(ExpressionStatement* origin_stmt, Expression_
     }
 }
 
+ReturnStatement* CreateReturnStmt(ExpressionStatement* stmt)
+{
+    if (!stmt)
+        return NULL;
+    else
+    {
+        ReturnStatement* ret = (ReturnStatement*) malloc(sizeof(ReturnStatement));
+        ret->expression_head = stmt->expression_head;
+        ret->expression_tail = stmt->expression_tail;
+        free (stmt);
+        return ret;
+    }
+}
+
 Statement_node* CreateStmtNode(void* ptr, STATEMENT_KIND kind)
 {
     Statement_node* ret = (Statement_node*) malloc(sizeof(Statement_node));
@@ -184,7 +198,7 @@ Statement_node* CreateStmtNode(void* ptr, STATEMENT_KIND kind)
             ret->stmt.expression_stmt = (ExpressionStatement*)(ptr);
             break;
         case RETURN_STMT:
-            ret->stmt.return_stmt = (ExpressionStatement*)(ptr);
+            ret->stmt.return_stmt = (ReturnStatement*)(ptr);
             break;
         case COMPOUND_STMT:
             ret->stmt.compound_stmt = (CompoundStatement*)(ptr);
@@ -1387,7 +1401,7 @@ void DeleteStmtNode(Statement_node* stmt)
                 DeleteCompoundStmt(stmt->stmt.compound_stmt);
                 break;
             case RETURN_STMT:
-                DeleteExprStmt(stmt->stmt.return_stmt);
+                DeleteReturnStmt(stmt->stmt.return_stmt);
                 break;
         }
 
@@ -1473,6 +1487,26 @@ void DeleteSelectionNode(Selection_node* node)
         DeleteStmtNode(node->content_statement);
 
         free (node);
+    }
+}
+
+void DeleteReturnStmt(ReturnStatement* stmt)
+{
+    if (!stmt)
+        return;
+    else
+    {
+        Expression_node* iterNode = stmt->expression_head;
+        Expression_node* nextNode;
+
+        while (iterNode != NULL)
+        {
+            nextNode = iterNode->next;
+            DeleteExprNode(iterNode);
+            iterNode = nextNode;
+        }
+
+        free (stmt);
     }
 }
 
@@ -2404,7 +2438,7 @@ jump_statement
 	| CONTINUE ';' {$$ = CreateStmtNode(NULL, EMPTY_CONTINUE_STMT);}
 	| BREAK ';' {$$ = CreateStmtNode(NULL, EMPTY_BREAK_STMT);}
 	| RETURN ';' {$$ = CreateStmtNode(NULL, EMPTY_RETURN_STMT);}
-	| RETURN expression ';' {$$ = CreateStmtNode($2, RETURN_STMT);}
+	| RETURN expression ';' {$$ = CreateStmtNode(CreateReturnStmt($2), RETURN_STMT);}
 	;
 
 translation_unit

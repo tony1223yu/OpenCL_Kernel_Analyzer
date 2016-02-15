@@ -910,6 +910,7 @@ StmtRepresentation* TraceStmtNode(Statement_node* node)
                 result = TraceExpressionStmt(node->stmt.expression_stmt);
                 break;
             case RETURN_STMT:
+                result = TraceReturnStmt(node->stmt.return_stmt);
                 break;
             case COMPOUND_STMT:
                 CreateSymTableLevel(symTable);
@@ -929,13 +930,31 @@ StmtRepresentation* TraceStmtNode(Statement_node* node)
     }
 }
 
+StmtRepresentation* TraceReturnStmt(ReturnStatement* stmt)
+{
+    if (!stmt)
+        return NULL;
+    else
+    {
+        Expression_node* iterNode = stmt->expression_head;
+        SemanticRepresentation* resultVal = NULL;
+        while (iterNode != NULL)
+        {
+            DeleteSemanticRepresentation(resultVal);
+            resultVal = TraceExprNode(iterNode);
+            iterNode = iterNode->next;
+        }
+        return CreateStmtRepresentation(RETURN_STMT, resultVal);
+    }
+}
+
 StmtRepresentation* TraceSelectionStmt(SelectionStatement* stmt)
 {
     if (!stmt)
         return NULL;
     else
     {
-        StmtRepresentation* result;
+        StmtRepresentation* result = NULL;
         Selection_node* iterSelect = stmt->selection_head;
         while (iterSelect != NULL)
         {
@@ -1020,9 +1039,7 @@ StmtRepresentation* TraceIterationStmt(IterationStatement* stmt)
 
         while (!loop_terminated)
         {
-            StmtRepresentation* result;
-
-            result = TraceStmtNode(stmt->content_statement);
+            StmtRepresentation* result = TraceStmtNode(stmt->content_statement);
             if (result && (result->kind & CONTROL_STMT_MASK))
             {
                 switch (result->kind)
@@ -1034,9 +1051,7 @@ StmtRepresentation* TraceIterationStmt(IterationStatement* stmt)
                         break;
                     case EMPTY_RETURN_STMT:
                     case RETURN_STMT:
-                        loop_terminated = 1;
-                        returnVal = result;
-                        result = NULL;
+                        return result;
                         break;
                 }
             }
@@ -1119,7 +1134,7 @@ StmtRepresentation* TraceCompoundStmt(CompoundStatement* stmt)
     }
 }
 
-void TraceFuncNode(Program_node* prog, char* func_name, SemanticRepresentation_list* arguments)
+StmtRepresentation* TraceFuncNode(Program_node* prog, char* func_name, SemanticRepresentation_list* arguments)
 {
     Function_node* func = prog->function_head;
     while (func != NULL)
@@ -1131,12 +1146,13 @@ void TraceFuncNode(Program_node* prog, char* func_name, SemanticRepresentation_l
     }
 
     if (!func)
-        return;
+        return NULL;
     else
     {
         printf("Start tracing function %s\n", func_name);
         SemanticRepresentation* iterArg;
         SemanticRepresentation* nextArg;
+        StmtRepresentation* result = NULL;
         Parameter_node* iterParam = func->parameter_head;
 
         if (arguments == NULL)
@@ -1160,8 +1176,16 @@ void TraceFuncNode(Program_node* prog, char* func_name, SemanticRepresentation_l
             iterParam = iterParam->next;
         }
 
-        TraceCompoundStmt(func->content_statement);
+        result = TraceCompoundStmt(func->content_statement);
         DeleteSymTableLevel(symTable);
+
+        if (result && ((result->kind == RETURN_STMT) || (result->kind == EMPTY_RETURN_STMT)))
+            return result;
+        else
+        {
+            DeleteStmtRepresentation(result);
+            return NULL;
+        }
     }
 }
 

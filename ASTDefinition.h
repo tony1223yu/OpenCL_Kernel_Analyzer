@@ -11,6 +11,7 @@ typedef struct Parameter_node Parameter_node;
 typedef struct Declaration_node Declaration_node;
 typedef struct Statement_node Statement_node;
 typedef struct ExpressionStatement ExpressionStatement;
+typedef struct ReturnStatement ReturnStatement;
 typedef struct IterationStatement IterationStatement;
 typedef struct SelectionStatement SelectionStatement;
 typedef struct Selection_node Selection_node;
@@ -67,6 +68,7 @@ Selection_node* CreateSelectionNode(SELECTION_KIND, ExpressionStatement*, Statem
 SelectionStatement* CreateSelectionStmt(Selection_node*);
 SelectionStatement* AddToSelectionStmt(SelectionStatement*, Selection_node*);
 SelectionStatement* MergeSelectionStmt(SelectionStatement*, SelectionStatement*);
+ReturnStatement* CreateReturnStmt(ExpressionStatement*);
 Function_node* CreateFunctionNode(TypeDescriptor*, Declaration_desc_node*, CompoundStatement*);
 void AddFuncNodeToProgram(Program_node*, Function_node*);
 void AddDeclNodeToProgram(Program_node*, Declaration_node*);
@@ -97,6 +99,7 @@ void DeleteIterStmt(IterationStatement*);
 void DeleteSelectionStmt(SelectionStatement*);
 void DeleteSelectionNode(Selection_node*);
 void DeleteExprStmt(ExpressionStatement*);
+void DeleteReturnStmt(ReturnStatement*);
 void DeleteExprNode(Expression_node*);
 void DeleteFuncInvocationNode(FunctionInvocation_node*);
 void DeleteConstantNode(Constant_node*);
@@ -112,6 +115,7 @@ void DebugSelectionStmt(SelectionStatement*, int);
 void DebugSelectionNode(Selection_node*, int);
 void DebugStmtNode(Statement_node*, int);
 void DebugExprStmt(ExpressionStatement*, int);
+void DebugReturnStmt(ReturnStatement*, int);
 void DebugExprNode(Expression_node*, int);
 void DebugTypeDesc(TypeDescriptor*, char*);
 void DebugExprKind(EXPRESSION_KIND, char*);
@@ -282,7 +286,7 @@ enum STATEMENT_KIND
     SELECTION_STMT,
     EXPRESSION_STMT,
     COMPOUND_STMT,
-    
+
     CONTROL_STMT_MASK = 0x2000,
     RETURN_STMT, /* with return expression */
     EMPTY_GOTO_STMT,
@@ -413,7 +417,7 @@ struct Statement_node
         SelectionStatement* selection_stmt;
         ExpressionStatement* expression_stmt;
         CompoundStatement* compound_stmt;
-        ExpressionStatement* return_stmt;
+        ReturnStatement* return_stmt;
     } stmt;
     Statement_node* next;
 };
@@ -424,6 +428,12 @@ struct CompoundStatement
     Declaration_node* declaration_tail;
     Statement_node* statement_head;
     Statement_node* statement_tail;
+};
+
+struct ReturnStatement
+{
+    Expression_node* expression_head;
+    Expression_node* expression_tail;
 };
 
 struct ExpressionStatement
