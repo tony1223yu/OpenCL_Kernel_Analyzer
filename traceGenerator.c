@@ -683,6 +683,519 @@ void GetValueInSemanticValue(SEMANTIC_VALUE_TYPE type, SemanticValue* value, voi
     }
 }
 
+SemanticRepresentation* TraceExprNode(Expression_node* node)
+{
+    if (!node)
+        return NULL;
+    else
+    {
+        SemanticRepresentation* left_value = TraceExprNode(node->left_operand);
+        SemanticRepresentation* right_value = TraceExprNode(node->right_operand);
+
+        if (node->expression_kind & EXPRESSION_MASK)
+        {
+            SemanticRepresentation* result = NULL;
+            switch (node->expression_kind)
+            {
+                case EXPRESSION_IDENTIFIER:
+                    {
+                        if (left_value != NULL)
+                            fprintf(stderr, "[Error] left operand should not appear in identifier node in %s\n", __func__);
+                        if (right_value != NULL)
+                            fprintf(stderr, "[Error] right operand should not appear in identifier node in %s\n", __func__);
+
+                        SymbolTableEntry* entry = FindSymbolInSymTable(symTable, node->direct_expr.identifier);
+                        result = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
+                        result->type = DuplicateTypeDesc(entry->type);
+                        result->lvalue = entry;
+                        result->next = NULL;
+
+                        if (entry->value)
+                            result->value = DuplicateSemanticValue(entry->value);
+                        else
+                        {
+                            fprintf(stderr, "[Error] Identifier \'%s\' in symbol table has a NULL semantic value in %s\n", node->direct_expr.identifier, __func__);
+                            result->value = NULL;
+                        }
+                    }
+                    break;
+                case EXPRESSION_CONSTANT:
+                    {
+                        if (left_value != NULL)
+                            fprintf(stderr, "[Error] left operand should not appear in constant node in %s\n", __func__);
+                        if (right_value != NULL)
+                            fprintf(stderr, "[Error] right operand should not appear in constant node in %s\n", __func__);
+
+                        result = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
+                        result->type = DuplicateTypeDesc(node->direct_expr.constant->constant_type);
+                        result->value = CreateEmptySemanticValue();
+                        result->value->type = TypeDescToSemanticValueType(result->type);
+                        memcpy(&(result->value->constVal), &(node->direct_expr.constant->value), sizeof(result->value->constVal));
+                        result->lvalue = NULL;
+                        result->next = NULL;
+                    }
+                    break;
+                case EXPRESSION_SUBSCRIPT:
+                    {
+                        /* Memory access */
+                    }
+                    break;
+                case EXPRESSION_FUNCTION:
+                    break;
+                case EXPRESSION_MEMBER:
+                    {
+                        if (right_value != NULL)
+                            fprintf(stderr, "[Error] right operand should not appear in member node in %s\n", __func__);
+
+                        SymbolTableEntry* entry = left_value->lvalue;
+                        SymbolTableEntry* new_entry = FindMemberInSymTable(entry, node->direct_expr.member);
+                        result = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
+                        result->type = DuplicateTypeDesc(new_entry->type);
+                        result->value = DuplicateSemanticValue(new_entry->value);
+                        result->lvalue = new_entry;
+                        result->next = NULL;
+                        DeleteSemanticRepresentation(left_value);
+                    }
+                    break;
+                case EXPRESSION_TYPECAST:
+                    break;
+                case EXPRESSION_EXPRSTMT:
+                    {
+                        StmtRepresentation* stmtVal = TraceExpressionStmt(node->direct_expr.expr_stmt);
+                        if (stmtVal != NULL)
+                        {
+                            result = stmtVal->expression;
+                            stmtVal->expression = NULL;
+                            DeleteStmtRepresentation(stmtVal);
+                        }
+                    }
+                    break;
+            }
+            return result;
+        }
+        else if (node->expression_kind & ASSIGNMENT_MASK)
+        {
+            SemanticRepresentation* result = CalculateSemanticRepresentation(node->expression_kind, left_value, right_value);
+
+            if (left_value->lvalue == NULL)
+                fprintf(stderr, "[Error] Assignment to non lvalue in %s\n", __func__);
+            else
+            {
+                if (result->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->value, &val);
+                    printf("Assign value : %ld\n", val);
+                }
+                else if (result->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, result->value, &val);
+                    printf("Assign value : %lu\n", val);
+                }
+                else if (result->value->type == VALUE_FLOAT)
+                {
+                    double val;
+                    GetValueInSemanticValue(VALUE_FLOAT, result->value, &val);
+                    printf("Assign value : %lf\n", val);
+                }
+                AssignToSymTableEntry(left_value->lvalue, result);
+            }
+
+            DeleteSemanticRepresentation(left_value);
+            DeleteSemanticRepresentation(right_value);
+
+            return result;
+        }
+        else // OP_MASK
+        {
+            SemanticRepresentation* result = CalculateSemanticRepresentation(node->expression_kind, left_value, right_value);
+
+            DeleteSemanticRepresentation(left_value);
+            DeleteSemanticRepresentation(right_value);
+            return result;
+        }
+    }
+}
+
+SymbolTableEntry_list* TraceDeclNode(Declaration_node* node)
+{
+    if (!node)
+        return NULL;
+    else
+    {
+        SymbolTableEntry_list* ret = NULL;
+        Declaration_desc_node* iterDesc = node->declaration_desc_head;
+        while (iterDesc != NULL)
+        {
+            SymbolTableEntry* entry;
+            TypeDescriptor* mix_type = MixAndCreateTypeDesc(node->declaration_type, iterDesc->identifier_type);
+
+            entry = CreateSymTableEntry(program, strdup(iterDesc->identifier_name), mix_type);
+            ret = AppendSymTableEntryToList(ret, entry);
+
+            if (iterDesc->init_expression)
+            {
+                SemanticRepresentation* init_value = TraceExprNode(iterDesc->init_expression);
+
+                if (init_value->value->type == VALUE_SIGNED_INTEGER)
+                {
+                    long val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, init_value->value, &val);
+                    printf("Initial value : %ld\n", val);
+                }
+                else if (init_value->value->type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, init_value->value, &val);
+                    printf("Initial value : %lu\n", val);
+                }
+                else if (init_value->value->type == VALUE_FLOAT)
+                {
+                    double val;
+                    GetValueInSemanticValue(VALUE_FLOAT, init_value->value, &val);
+                    printf("Initial value : %lf\n", val);
+                }
+
+                AssignToSymTableEntry(entry, init_value);
+                DeleteSemanticRepresentation(init_value);
+            }
+            else
+            {
+                SEMANTIC_VALUE_TYPE type = TypeDescToSemanticValueType(entry->type);
+                entry->value = CreateZeroSemanticValue(type);
+            }
+
+            iterDesc = iterDesc->next;
+        }
+        return ret;
+    }
+}
+
+StmtRepresentation* CreateStmtRepresentation(STATEMENT_KIND kind, SemanticRepresentation* value)
+{
+    StmtRepresentation* ret = (StmtRepresentation*) malloc(sizeof(StmtRepresentation));
+    ret->kind = kind;
+    ret->expression = value;
+    return ret;
+}
+
+void DeleteStmtRepresentation(StmtRepresentation* rep)
+{
+    if (rep == NULL)
+        return;
+    else
+    {
+        DeleteSemanticRepresentation(rep->expression);
+        free (rep);
+    }
+}
+
+StmtRepresentation* TraceStmtNode(Statement_node* node)
+{
+    if (!node)
+        return NULL;
+    else
+    {
+        StmtRepresentation* result = NULL;
+        switch (node->statement_kind)
+        {
+            case ITERATION_STMT:
+                result = TraceIterationStmt(node->stmt.iteration_stmt);
+                break;
+            case SELECTION_STMT:
+                result = TraceSelectionStmt(node->stmt.selection_stmt);
+                break;
+            case EXPRESSION_STMT:
+                result = TraceExpressionStmt(node->stmt.expression_stmt);
+                break;
+            case RETURN_STMT:
+                break;
+            case COMPOUND_STMT:
+                CreateSymTableLevel(symTable);
+                result = TraceCompoundStmt(node->stmt.compound_stmt);
+                DeleteSymTableLevel(symTable);
+                break;
+            case EMPTY_GOTO_STMT:
+                fprintf(stderr, "[Error] Does not support GOTO statement for now\n");
+                break;
+            case EMPTY_CONTINUE_STMT:
+            case EMPTY_BREAK_STMT:
+            case EMPTY_RETURN_STMT:
+                result = CreateStmtRepresentation(node->statement_kind, NULL);
+                break;
+        }
+        return result;
+    }
+}
+
+StmtRepresentation* TraceSelectionStmt(SelectionStatement* stmt)
+{
+    if (!stmt)
+        return NULL;
+    else
+    {
+        StmtRepresentation* result;
+        Selection_node* iterSelect = stmt->selection_head;
+        while (iterSelect != NULL)
+        {
+            if (iterSelect->condition_kind == SELECTION_WITH_COND)
+            {
+                result = TraceExpressionStmt(iterSelect->condition_expression);
+                if (result && result->expression)
+                {
+                    long condition_value;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->expression->value, &condition_value);
+                    DeleteStmtRepresentation(result);
+                    if (condition_value)
+                    {
+                        result = TraceStmtNode(iterSelect->content_statement);
+                        if (result && (result->kind & CONTROL_STMT_MASK))
+                            return result;
+                        else
+                            DeleteStmtRepresentation(result);
+
+                        break;
+                    }
+                }
+                else
+                    DeleteStmtRepresentation(result);
+
+            }
+            else if (iterSelect->condition_kind == SELECTION_WITHOUT_COND)
+            {
+                result = TraceStmtNode(iterSelect->content_statement);
+                if (result && (result->kind & CONTROL_STMT_MASK))
+                    return result;
+                else
+                    DeleteStmtRepresentation(result);
+
+                break;
+            }
+
+            iterSelect = iterSelect->next;
+        }
+        return CreateStmtRepresentation(SELECTION_STMT, NULL);
+    }
+}
+
+StmtRepresentation* TraceIterationStmt(IterationStatement* stmt)
+{
+    if (!stmt)
+        return NULL;
+    else
+    {
+        int loop_terminated = 0;
+        StmtRepresentation* returnVal = NULL;
+
+        /* INIT */
+
+        if (stmt->kind == FOR_LOOP_WITH_DECL)
+        {
+            SymbolTableEntry_list* entry_list = NULL;
+            CreateSymTableLevel(symTable);
+            entry_list = TraceDeclNode(stmt->init.declaration);
+            AddEntryListToSymTable(symTable, entry_list);
+        }
+        else
+        {
+            StmtRepresentation* result = TraceExpressionStmt(stmt->init.expression);
+            DeleteStmtRepresentation(result);
+        }
+
+        /* CONTENT */
+
+        if (stmt->kind != DO_WHILE_LOOP) // check the condition first
+        {
+            StmtRepresentation* result = TraceExpressionStmt(stmt->terminated_expression);
+            if (result && result->expression)
+            {
+                long terminated_value;
+                GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->expression->value, &terminated_value);
+                if (!terminated_value)
+                    loop_terminated = 1;
+            }
+            DeleteStmtRepresentation(result);
+        }
+
+        while (!loop_terminated)
+        {
+            StmtRepresentation* result;
+
+            result = TraceStmtNode(stmt->content_statement);
+            if (result && (result->kind & CONTROL_STMT_MASK))
+            {
+                switch (result->kind)
+                {
+                    case EMPTY_CONTINUE_STMT:
+                        break;
+                    case EMPTY_BREAK_STMT:
+                        loop_terminated = 1;
+                        break;
+                    case EMPTY_RETURN_STMT:
+                    case RETURN_STMT:
+                        loop_terminated = 1;
+                        returnVal = result;
+                        result = NULL;
+                        break;
+                }
+            }
+            DeleteStmtRepresentation(result);
+
+            result = TraceExpressionStmt(stmt->step_expression);
+            DeleteStmtRepresentation(result);
+
+            result = TraceExpressionStmt(stmt->terminated_expression);
+            if (result && result->expression)
+            {
+                long terminated_value;
+                GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->expression->value, &terminated_value);
+                if (!terminated_value)
+                    loop_terminated = 1;
+            }
+            DeleteStmtRepresentation(result);
+        }
+
+        /* CLEANUP */
+
+        if (stmt->kind == FOR_LOOP_WITH_DECL)
+        {
+            DeleteSymTableLevel(symTable);
+        }
+
+        if (returnVal == NULL)
+            returnVal = CreateStmtRepresentation(ITERATION_STMT, NULL);
+
+        return returnVal;
+    }
+}
+
+StmtRepresentation* TraceExpressionStmt(ExpressionStatement* stmt)
+{
+    if (!stmt)
+        return NULL;
+    else
+    {
+        Expression_node* iterNode = stmt->expression_head;
+        SemanticRepresentation* resultVal = NULL;
+        while (iterNode != NULL)
+        {
+            DeleteSemanticRepresentation(resultVal);
+            resultVal = TraceExprNode(iterNode);
+            iterNode = iterNode->next;
+        }
+        return CreateStmtRepresentation(EXPRESSION_STMT, resultVal);
+    }
+}
+
+// Symbol table level should be created by caller
+StmtRepresentation* TraceCompoundStmt(CompoundStatement* stmt)
+{
+    if (!stmt)
+        return NULL;
+    else
+    {
+        Declaration_node* iterDecl = stmt->declaration_head;
+        Statement_node* iterStmt = stmt->statement_head;
+        StmtRepresentation* result = NULL;
+        while (iterDecl != NULL)
+        {
+            SymbolTableEntry_list* entry_list = TraceDeclNode(iterDecl);
+            AddEntryListToSymTable(symTable, entry_list);
+            iterDecl = iterDecl->next;
+        }
+        while (iterStmt != NULL)
+        {
+            result = TraceStmtNode(iterStmt);
+
+            if (result && (result->kind & CONTROL_STMT_MASK))
+                return result;
+            else
+                DeleteStmtRepresentation(result);
+
+            iterStmt = iterStmt->next;
+        }
+        return CreateStmtRepresentation(COMPOUND_STMT, NULL);
+    }
+}
+
+void TraceFuncNode(Program_node* prog, char* func_name, SemanticRepresentation_list* arguments)
+{
+    Function_node* func = prog->function_head;
+    while (func != NULL)
+    {
+        if (strcmp(func_name, func->function_name) == 0)
+            break;
+
+        func = func->next;
+    }
+
+    if (!func)
+        return;
+    else
+    {
+        printf("Start tracing function %s\n", func_name);
+        SemanticRepresentation* iterArg;
+        SemanticRepresentation* nextArg;
+        Parameter_node* iterParam = func->parameter_head;
+
+        if (arguments == NULL)
+            iterArg = NULL;
+        else
+            iterArg = arguments->value_head;
+
+        CreateSymTableLevel(symTable);
+        while (iterParam != NULL && iterArg != NULL)
+        {
+            TypeDescriptor* mix_type = MixAndCreateTypeDesc(iterParam->parameter_type, iterParam->parameter_desc->identifier_type);
+            char* name = strdup(iterParam->parameter_desc->identifier_name);
+
+            SymbolTableEntry* entry = CreateSymTableEntry(program, name, mix_type);
+            AssignToSymTableEntry(entry, iterArg);
+            AddEntryToSymTable(symTable, entry);
+
+            nextArg = iterArg->next;
+            DeleteSemanticRepresentation(iterArg);
+            iterArg = nextArg;
+            iterParam = iterParam->next;
+        }
+
+        TraceCompoundStmt(func->content_statement);
+        DeleteSymTableLevel(symTable);
+    }
+}
+
+void ShowOPTrace(Operation_list* list)
+{
+    Operation* iterOP;
+
+    printf("\n\n========== Operation trace ==========\n\n");
+    if (list != NULL)
+    {
+        Operation* iterOP = list->operation_head;
+        while (iterOP != NULL)
+        {
+            printf("[#%lu] %d ", iterOP->id, iterOP->kind);
+            if (iterOP->issue_dep)
+                printf("issue: #%lu, ", iterOP->issue_dep->targetOP->id);
+            if (iterOP->structural_dep)
+                printf("struct #%lu, ", iterOP->structural_dep->targetOP->id);
+            if (iterOP->data_dep_head)
+            {
+                Dependency* iterDep = iterOP->data_dep_head;
+                printf("data ");
+                while (iterDep != NULL)
+                {
+                    printf("#%lu ", iterDep->targetOP->id);
+                    iterDep = iterDep->next;
+                }
+            }
+            printf("\n");
+            iterOP = iterOP->next;
+        }
+    }
+}
+
 SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, SemanticRepresentation* left, SemanticRepresentation* right)
 {
     if ((!left) && (!right))
@@ -1188,464 +1701,3 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
     }
 }
 
-SemanticRepresentation* TraceExprNode(Expression_node* node)
-{
-    if (!node)
-        return NULL;
-    else
-    {
-        SemanticRepresentation* left_value = TraceExprNode(node->left_operand);
-        SemanticRepresentation* right_value = TraceExprNode(node->right_operand);
-
-        if (node->expression_kind & EXPRESSION_MASK)
-        {
-            SemanticRepresentation* result = NULL;
-            switch (node->expression_kind)
-            {
-                case EXPRESSION_IDENTIFIER:
-                    {
-                        if (left_value != NULL)
-                            fprintf(stderr, "[Error] left operand should not appear in identifier node in %s\n", __func__);
-                        if (right_value != NULL)
-                            fprintf(stderr, "[Error] right operand should not appear in identifier node in %s\n", __func__);
-
-                        SymbolTableEntry* entry = FindSymbolInSymTable(symTable, node->direct_expr.identifier);
-                        result = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
-                        result->type = DuplicateTypeDesc(entry->type);
-                        result->lvalue = entry;
-                        result->next = NULL;
-
-                        if (entry->value)
-                            result->value = DuplicateSemanticValue(entry->value);
-                        else
-                        {
-                            fprintf(stderr, "[Error] Identifier \'%s\' in symbol table has a NULL semantic value in %s\n", node->direct_expr.identifier, __func__);
-                            result->value = NULL;
-                        }
-                    }
-                    break;
-                case EXPRESSION_CONSTANT:
-                    {
-                        if (left_value != NULL)
-                            fprintf(stderr, "[Error] left operand should not appear in constant node in %s\n", __func__);
-                        if (right_value != NULL)
-                            fprintf(stderr, "[Error] right operand should not appear in constant node in %s\n", __func__);
-
-                        result = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
-                        result->type = DuplicateTypeDesc(node->direct_expr.constant->constant_type);
-                        result->value = CreateEmptySemanticValue();
-                        result->value->type = TypeDescToSemanticValueType(result->type);
-                        memcpy(&(result->value->constVal), &(node->direct_expr.constant->value), sizeof(result->value->constVal));
-                        result->lvalue = NULL;
-                        result->next = NULL;
-                    }
-                    break;
-                case EXPRESSION_SUBSCRIPT:
-                    {
-                        /* Memory access */
-                    }
-                    break;
-                case EXPRESSION_FUNCTION:
-                    break;
-                case EXPRESSION_MEMBER:
-                    {
-                        if (right_value != NULL)
-                            fprintf(stderr, "[Error] right operand should not appear in member node in %s\n", __func__);
-
-                        SymbolTableEntry* entry = left_value->lvalue;
-                        SymbolTableEntry* new_entry = FindMemberInSymTable(entry, node->direct_expr.member);
-                        result = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
-                        result->type = DuplicateTypeDesc(new_entry->type);
-                        result->value = DuplicateSemanticValue(new_entry->value);
-                        result->lvalue = new_entry;
-                        result->next = NULL;
-                        DeleteSemanticRepresentation(left_value);
-                    }
-                    break;
-                case EXPRESSION_TYPECAST:
-                    break;
-                case EXPRESSION_EXPRSTMT:
-                    {
-                        StmtRepresentation* stmtVal = TraceExpressionStmt(node->direct_expr.expr_stmt);
-                        if (stmtVal != NULL)
-                        {
-                            result = stmtVal->expression;
-                            stmtVal->expression = NULL;
-                            DeleteStmtRepresentation(stmtVal);
-                        }
-                    }
-                    break;
-            }
-            return result;
-        }
-        else if (node->expression_kind & ASSIGNMENT_MASK)
-        {
-            SemanticRepresentation* result = CalculateSemanticRepresentation(node->expression_kind, left_value, right_value);
-
-            if (left_value->lvalue == NULL)
-                fprintf(stderr, "[Error] Assignment to non lvalue in %s\n", __func__);
-            else
-            {
-                if (result->value->type == VALUE_SIGNED_INTEGER)
-                {
-                    long val;
-                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->value, &val);
-                    printf("Assign value : %ld\n", val);
-                }
-                else if (result->value->type == VALUE_UNSIGNED_INTEGER)
-                {
-                    unsigned long val;
-                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, result->value, &val);
-                    printf("Assign value : %lu\n", val);
-                }
-                else if (result->value->type == VALUE_FLOAT)
-                {
-                    double val;
-                    GetValueInSemanticValue(VALUE_FLOAT, result->value, &val);
-                    printf("Assign value : %lf\n", val);
-                }
-                AssignToSymTableEntry(left_value->lvalue, result);
-            }
-
-            DeleteSemanticRepresentation(left_value);
-            DeleteSemanticRepresentation(right_value);
-
-            return result;
-        }
-        else // OP_MASK
-        {
-            SemanticRepresentation* result = CalculateSemanticRepresentation(node->expression_kind, left_value, right_value);
-
-            DeleteSemanticRepresentation(left_value);
-            DeleteSemanticRepresentation(right_value);
-            return result;
-        }
-    }
-}
-
-SymbolTableEntry_list* TraceDeclNode(Declaration_node* node)
-{
-    if (!node)
-        return NULL;
-    else
-    {
-        SymbolTableEntry_list* ret = NULL;
-        Declaration_desc_node* iterDesc = node->declaration_desc_head;
-        while (iterDesc != NULL)
-        {
-            SymbolTableEntry* entry;
-            TypeDescriptor* mix_type = MixAndCreateTypeDesc(node->declaration_type, iterDesc->identifier_type);
-
-            entry = CreateSymTableEntry(program, strdup(iterDesc->identifier_name), mix_type);
-            ret = AppendSymTableEntryToList(ret, entry);
-
-            if (iterDesc->init_expression)
-            {
-                SemanticRepresentation* init_value = TraceExprNode(iterDesc->init_expression);
-
-                if (init_value->value->type == VALUE_SIGNED_INTEGER)
-                {
-                    long val;
-                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, init_value->value, &val);
-                    printf("Initial value : %ld\n", val);
-                }
-                else if (init_value->value->type == VALUE_UNSIGNED_INTEGER)
-                {
-                    unsigned long val;
-                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, init_value->value, &val);
-                    printf("Initial value : %lu\n", val);
-                }
-                else if (init_value->value->type == VALUE_FLOAT)
-                {
-                    double val;
-                    GetValueInSemanticValue(VALUE_FLOAT, init_value->value, &val);
-                    printf("Initial value : %lf\n", val);
-                }
-
-                AssignToSymTableEntry(entry, init_value);
-                DeleteSemanticRepresentation(init_value);
-            }
-            else
-            {
-                SEMANTIC_VALUE_TYPE type = TypeDescToSemanticValueType(entry->type);
-                entry->value = CreateZeroSemanticValue(type);
-            }
-
-            iterDesc = iterDesc->next;
-        }
-        return ret;
-    }
-}
-
-StmtRepresentation* CreateStmtRepresentation(STATEMENT_KIND kind, SemanticRepresentation* value)
-{
-    StmtRepresentation* ret = (StmtRepresentation*) malloc(sizeof(StmtRepresentation));
-    ret->kind = kind;
-    ret->expression = value;
-    return ret;
-}
-
-void DeleteStmtRepresentation(StmtRepresentation* rep)
-{
-    if (rep == NULL)
-        return;
-    else
-    {
-        DeleteSemanticRepresentation(rep->expression);
-        free (rep);
-    }
-}
-
-StmtRepresentation* TraceStmtNode(Statement_node* node)
-{
-    if (!node)
-        return NULL;
-    else
-    {
-        StmtRepresentation* result = NULL;
-        switch (node->statement_kind)
-        {
-            case ITERATION_STMT:
-                result = TraceIterationStmt(node->stmt.iteration_stmt);
-                break;
-            case SELECTION_STMT:
-                break;
-            case EXPRESSION_STMT:
-                result = TraceExpressionStmt(node->stmt.expression_stmt);
-                break;
-            case RETURN_STMT:
-                break;
-            case COMPOUND_STMT:
-                CreateSymTableLevel(symTable);
-                result = TraceCompoundStmt(node->stmt.compound_stmt);
-                DeleteSymTableLevel(symTable);
-                break;
-            case EMPTY_GOTO_STMT:
-                fprintf(stderr, "[Error] Does not support GOTO statement for now\n");
-                break;
-            case EMPTY_CONTINUE_STMT:
-            case EMPTY_BREAK_STMT:
-            case EMPTY_RETURN_STMT:
-                result = CreateStmtRepresentation(node->statement_kind, NULL);
-                break;
-        }
-        return result;
-    }
-}
-
-StmtRepresentation* TraceIterationStmt(IterationStatement* stmt)
-{
-    if (!stmt)
-        return NULL;
-    else
-    {
-        int loop_terminated = 0;
-        StmtRepresentation* returnVal = NULL;
-
-        /* INIT */
-
-        if (stmt->kind == FOR_LOOP_WITH_DECL)
-        {
-            SymbolTableEntry_list* entry_list = NULL;
-            CreateSymTableLevel(symTable);
-            entry_list = TraceDeclNode(stmt->init.declaration);
-            AddEntryListToSymTable(symTable, entry_list);
-        }
-        else
-        {
-            StmtRepresentation* result = TraceExpressionStmt(stmt->init.expression);
-            DeleteStmtRepresentation(result);
-        }
-
-        /* CONTENT */
-
-        if (stmt->kind != DO_WHILE_LOOP) // check the condition first
-        {
-            StmtRepresentation* result = TraceExpressionStmt(stmt->terminated_expression);
-            if (result && result->expression)
-            {
-                long terminated_value;
-                GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->expression->value, &terminated_value);
-                if (!terminated_value)
-                    loop_terminated = 1;
-            }
-            DeleteStmtRepresentation(result);
-        }
-
-        while (!loop_terminated)
-        {
-            StmtRepresentation* result;
-
-            result = TraceStmtNode(stmt->content_statement);
-            if (result && (result->kind = CONTROL_STMT_MASK))
-            {
-                switch (result->kind)
-                {
-                    case EMPTY_CONTINUE_STMT:
-                        break;
-                    case EMPTY_BREAK_STMT:
-                        loop_terminated = 1;
-                        break;
-                    case EMPTY_RETURN_STMT:
-                    case RETURN_STMT:
-                        loop_terminated = 1;
-                        returnVal = result;
-                        result = NULL;
-                        break;
-                }
-            }
-            DeleteStmtRepresentation(result);
-
-            result = TraceExpressionStmt(stmt->step_expression);
-            DeleteStmtRepresentation(result);
-
-            result = TraceExpressionStmt(stmt->terminated_expression);
-            if (result && result->expression)
-            {
-                long terminated_value;
-                GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->expression->value, &terminated_value);
-                if (!terminated_value)
-                    loop_terminated = 1;
-            }
-            DeleteStmtRepresentation(result);
-        }
-
-        /* CLEANUP */
-
-        if (stmt->kind == FOR_LOOP_WITH_DECL)
-        {
-            DeleteSymTableLevel(symTable);
-        }
-
-        if (returnVal == NULL)
-            returnVal = CreateStmtRepresentation(ITERATION_STMT, NULL);
-
-        return returnVal;
-    }
-}
-
-StmtRepresentation* TraceExpressionStmt(ExpressionStatement* stmt)
-{
-    if (!stmt)
-        return NULL;
-    else
-    {
-        Expression_node* iterNode = stmt->expression_head;
-        SemanticRepresentation* resultVal = NULL;
-        while (iterNode != NULL)
-        {
-            DeleteSemanticRepresentation(resultVal);
-            resultVal = TraceExprNode(iterNode);
-            iterNode = iterNode->next;
-        }
-        return CreateStmtRepresentation(EXPRESSION_STMT, resultVal);
-    }
-}
-
-// Symbol table level should be created by caller
-StmtRepresentation* TraceCompoundStmt(CompoundStatement* stmt)
-{
-    if (!stmt)
-        return NULL;
-    else
-    {
-        Declaration_node* iterDecl = stmt->declaration_head;
-        Statement_node* iterStmt = stmt->statement_head;
-        StmtRepresentation* result = NULL;
-        while (iterDecl != NULL)
-        {
-            SymbolTableEntry_list* entry_list = TraceDeclNode(iterDecl);
-            AddEntryListToSymTable(symTable, entry_list);
-            iterDecl = iterDecl->next;
-        }
-        while (iterStmt != NULL)
-        {
-            result = TraceStmtNode(iterStmt);
-
-            if (result && (result->kind & CONTROL_STMT_MASK))
-                return result;
-            else
-                DeleteStmtRepresentation(result);
-
-            iterStmt = iterStmt->next;
-        }
-        return CreateStmtRepresentation(COMPOUND_STMT, NULL);
-    }
-}
-
-void TraceFuncNode(Program_node* prog, char* func_name, SemanticRepresentation_list* arguments)
-{
-    Function_node* func = prog->function_head;
-    while (func != NULL)
-    {
-        if (strcmp(func_name, func->function_name) == 0)
-            break;
-
-        func = func->next;
-    }
-
-    if (!func)
-        return;
-    else
-    {
-        printf("Start tracing function %s\n", func_name);
-        SemanticRepresentation* iterArg;
-        SemanticRepresentation* nextArg;
-        Parameter_node* iterParam = func->parameter_head;
-
-        if (arguments == NULL)
-            iterArg = NULL;
-        else
-            iterArg = arguments->value_head;
-
-        CreateSymTableLevel(symTable);
-        while (iterParam != NULL && iterArg != NULL)
-        {
-            TypeDescriptor* mix_type = MixAndCreateTypeDesc(iterParam->parameter_type, iterParam->parameter_desc->identifier_type);
-            char* name = strdup(iterParam->parameter_desc->identifier_name);
-
-            SymbolTableEntry* entry = CreateSymTableEntry(program, name, mix_type);
-            AssignToSymTableEntry(entry, iterArg);
-            AddEntryToSymTable(symTable, entry);
-
-            nextArg = iterArg->next;
-            DeleteSemanticRepresentation(iterArg);
-            iterArg = nextArg;
-            iterParam = iterParam->next;
-        }
-
-        TraceCompoundStmt(func->content_statement);
-        DeleteSymTableLevel(symTable);
-    }
-}
-
-void ShowOPTrace(Operation_list* list)
-{
-    Operation* iterOP;
-
-    printf("\n\n========== Operation trace ==========\n\n");
-    if (list != NULL)
-    {
-        Operation* iterOP = list->operation_head;
-        while (iterOP != NULL)
-        {
-            printf("[#%lu] %d ", iterOP->id, iterOP->kind);
-            if (iterOP->issue_dep)
-                printf("issue: #%lu, ", iterOP->issue_dep->targetOP->id);
-            if (iterOP->structural_dep)
-                printf("struct #%lu, ", iterOP->structural_dep->targetOP->id);
-            if (iterOP->data_dep_head)
-            {
-                Dependency* iterDep = iterOP->data_dep_head;
-                printf("data ");
-                while (iterDep != NULL)
-                {
-                    printf("#%lu ", iterDep->targetOP->id);
-                    iterDep = iterDep->next;
-                }
-            }
-            printf("\n");
-            iterOP = iterOP->next;
-        }
-    }
-}

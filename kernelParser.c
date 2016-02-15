@@ -238,9 +238,18 @@ void DebugStmtNode(Statement_node* stmt, int align)
                 DebugCompoundStmt(stmt->stmt.compound_stmt, align);
                 break;
             case EMPTY_GOTO_STMT:
+                break;
             case EMPTY_CONTINUE_STMT:
+                DebugAlignment(align);
+                printf("[CONTINUE]\n");
+                break;
             case EMPTY_BREAK_STMT:
+                DebugAlignment(align);
+                printf("[BREAK]\n");
+                break;
             case EMPTY_RETURN_STMT:
+                DebugAlignment(align);
+                printf("[EMPTY RETURN]\n");
                 break;
         }
     }

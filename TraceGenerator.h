@@ -44,6 +44,7 @@ StmtRepresentation* CreateStmtRepresentation(STATEMENT_KIND, SemanticRepresentat
 void DeleteStmtRepresentation(StmtRepresentation*);
 StmtRepresentation* TraceCompoundStmt(CompoundStatement*);
 StmtRepresentation* TraceIterationStmt(IterationStatement*);
+StmtRepresentation* TraceSelectionStmt(SelectionStatement* stmt);
 StmtRepresentation* TraceStmtNode(Statement_node*);
 StmtRepresentation* TraceExpressionStmt(ExpressionStatement*);
 SemanticRepresentation* TraceExprNode(Expression_node*);
