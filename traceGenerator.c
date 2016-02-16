@@ -512,6 +512,26 @@ void DeleteSemanticValue(SemanticValue* value)
     }
 }
 
+void DeleteSemanticRepresentationList(SemanticRepresentation_list* list)
+{
+    if (!list)
+        return;
+    else
+    {
+        SemanticRepresentation* iterValue = list->value_head;
+        SemanticRepresentation* nextValue;
+
+        while (iterValue != NULL)
+        {
+            nextValue = iterValue->next;
+            DeleteSemanticRepresentation(iterValue);
+            iterValue = nextValue;
+        }
+
+        free (list);
+    }
+}
+
 void DeleteSemanticRepresentation(SemanticRepresentation* value)
 {
     if (!value)
@@ -652,6 +672,26 @@ TypeDescriptor* MergeTypeDesc(TypeDescriptor* left, TypeDescriptor* right)
     }
 }
 
+SemanticRepresentation_list* AppendSemanticRepresentationToList(SemanticRepresentation_list* origin_list, SemanticRepresentation* new_value)
+{
+    if (!new_value)
+        return origin_list;
+
+    if (origin_list == NULL)
+    {
+        SemanticRepresentation_list* ret = (SemanticRepresentation_list*) malloc(sizeof(SemanticRepresentation_list));
+        ret->value_head = new_value;
+        ret->value_tail = new_value;
+        return ret;
+    }
+    else
+    {
+        origin_list->value_tail->next = new_value;
+        origin_list->value_tail = new_value;
+        return origin_list;
+    }
+}
+
 void GetValueInSemanticValue(SEMANTIC_VALUE_TYPE type, SemanticValue* value, void* ret)
 {
     if (type == VALUE_SIGNED_INTEGER)
@@ -741,6 +781,34 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                     }
                     break;
                 case EXPRESSION_FUNCTION:
+                    {
+                        if (left_value != NULL)
+                            fprintf(stderr, "[Error] left operand should not appear in function invocation node in %s\n", __func__);
+                        if (right_value != NULL)
+                            fprintf(stderr, "[Error] right operand should not appear in function invocation node in %s\n", __func__);
+
+                        FunctionInvocation_node* currFunc = node->direct_expr.function;
+                        Expression_node* iterArg = currFunc->argument_head;
+                        SemanticRepresentation_list* args = NULL;
+                        SemanticRepresentation* tmp;
+                        StmtRepresentation* returnVal = NULL;
+
+                        while (iterArg != NULL)
+                        {
+                            tmp = TraceExprNode(iterArg);
+                            args = AppendSemanticRepresentationToList(args, tmp);
+                            iterArg = iterArg->next;
+                        }
+                        returnVal = TraceFuncNode(program, currFunc->name, args);
+
+                        if (returnVal != NULL)
+                            result = returnVal->expression;
+                        else
+                            result = NULL;
+
+                        DeleteSemanticRepresentationList(args);
+                        DeleteSemanticRepresentation(left_value);
+                    }
                     break;
                 case EXPRESSION_MEMBER:
                     {
@@ -761,6 +829,11 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                     break;
                 case EXPRESSION_EXPRSTMT:
                     {
+                        if (left_value != NULL)
+                            fprintf(stderr, "[Error] left operand should not appear in expression statement node in %s\n", __func__);
+                        if (right_value != NULL)
+                            fprintf(stderr, "[Error] right operand should not appear in expression statement node in %s\n", __func__);
+
                         StmtRepresentation* stmtVal = TraceExpressionStmt(node->direct_expr.expr_stmt);
                         if (stmtVal != NULL)
                         {
@@ -1151,7 +1224,6 @@ StmtRepresentation* TraceFuncNode(Program_node* prog, char* func_name, SemanticR
     {
         printf("Start tracing function %s\n", func_name);
         SemanticRepresentation* iterArg;
-        SemanticRepresentation* nextArg;
         StmtRepresentation* result = NULL;
         Parameter_node* iterParam = func->parameter_head;
 
@@ -1170,9 +1242,7 @@ StmtRepresentation* TraceFuncNode(Program_node* prog, char* func_name, SemanticR
             AssignToSymTableEntry(entry, iterArg);
             AddEntryToSymTable(symTable, entry);
 
-            nextArg = iterArg->next;
-            DeleteSemanticRepresentation(iterArg);
-            iterArg = nextArg;
+            iterArg = iterArg->next;
             iterParam = iterParam->next;
         }
 

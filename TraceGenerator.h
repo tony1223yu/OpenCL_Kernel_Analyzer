@@ -31,6 +31,7 @@ void CreateSymbolTableLevel(SymbolTable*);
 void DeleteSymTableLevel(SymbolTable*);
 void AddEntryToSymTable(SymbolTable*, SymbolTableEntry*);
 void AddEntryListToSymTable(SymbolTable*, SymbolTableEntry_list*);
+SemanticRepresentation_list* AppendSemanticRepresentationToList(SemanticRepresentation_list*, SemanticRepresentation*);
 SemanticValue* DuplicateSemanticValue(SemanticValue*);
 SemanticRepresentation* DuplicateSemanticRepresentation(SemanticRepresentation*);
 void AssignToSymTableEntry(SymbolTableEntry*, SemanticRepresentation*);
@@ -38,6 +39,7 @@ SymbolTableEntry_list* AppendSymTableEntryToList(SymbolTableEntry_list*, SymbolT
 SymbolTableEntry* CreateSymbolTableEntry(Program_node*, char*, TypeDescriptor*);
 void DeleteSymTableEntry(SymbolTableEntry*);
 void DeleteSemanticRepresentation(SemanticRepresentation*);
+void DeleteSemanticRepresentationList(SemanticRepresentation_list*);
 void DeleteSemanticValue(SemanticValue*);
 StmtRepresentation* TraceFuncNode(Program_node*, char*, SemanticRepresentation_list*);
 StmtRepresentation* CreateStmtRepresentation(STATEMENT_KIND, SemanticRepresentation*);
