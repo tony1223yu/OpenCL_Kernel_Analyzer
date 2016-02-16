@@ -125,12 +125,6 @@ void DebugConstantNode(Constant_node*, int);
 void DebugFuncInvocationNode(FunctionInvocation_node*, int);
 void DebugStructDeclNode(StructDeclaration_node*);
 
-#if 0
-long GetIntValFromConstNode(Constant_node*);
-unsigned long GetUIntValFromConstNode(Constant_node*);
-double GetFloatValFromConstNode(Constant_node*);
-#endif
-
 enum OPENCL_DATA_TYPE
 {
     CONST_TYPE_SIZE_MASK = 0xFFF,
@@ -281,7 +275,6 @@ enum SELECTION_KIND
 enum STATEMENT_KIND
 {
     NORMAL_STMT_MASK = 0x1000,
-    /* w/ stmt desc */
     ITERATION_STMT,
     SELECTION_STMT,
     EXPRESSION_STMT,
@@ -359,7 +352,6 @@ struct ArrayDesc_node
     ArrayDesc_node* next;
 };
 
-// single function definition
 struct Function_node
 {
     char* function_name;
@@ -473,7 +465,6 @@ struct Selection_node
 
 struct Expression_node
 {
-    /* should calculate the rvalue first */
     EXPRESSION_KIND expression_kind;
     Expression_node* left_operand;
     Expression_node* right_operand;

@@ -17,68 +17,6 @@ __inline__ void DebugAlignment(int align)
         printf("\t");
 }
 
-#if 0
-long GetIntValFromConstNode(Constant_node* node)
-{
-    if ((!node) || (!node->constant_type)) return 0;
-    else
-    {
-        OPENCL_DATA_TYPE type = node->constant_type->type;
-        if (type && CONST_SIGNED_INTEGER_MASK)
-            return node->value.long_val;
-        else if (type && CONST_UNSIGNED_INTEGER_MASK)
-            return (long)(node->value.ulong_val);
-        else if (type && CONST_FLOAT_MASK)
-            return (long)(node->value.double_val);
-        else
-        {
-            fprintf(stderr, "[Error] Cannot cast to long in %s\n", __func__);
-            return 0;
-        }
-    }
-}
-
-unsigned long GetUIntValFromConstNode(Constant_node* node)
-{
-    if ((!node) || (!node->constant_type)) return 0;
-    else
-    {
-        OPENCL_DATA_TYPE type = node->constant_type->type;
-        if (type && CONST_SIGNED_INTEGER_MASK)
-            return (unsigned long)(node->value.long_val);
-        else if (type && CONST_UNSIGNED_INTEGER_MASK)
-            return node->value.ulong_val;
-        else if (type && CONST_FLOAT_MASK)
-            return (unsigned long)(node->value.double_val);
-        else
-        {
-            fprintf(stderr, "[Error] Cannot cast to ulong in %s\n", __func__);
-            return 0;
-        }
-    }
-}
-
-double GetFloatValFromConstNode(Constant_node* node)
-{
-    if ((!node) || (!node->constant_type)) return 0;
-    else
-    {
-        OPENCL_DATA_TYPE type = node->constant_type->type;
-        if (type && CONST_SIGNED_INTEGER_MASK)
-            return (double)(node->value.long_val);
-        else if (type && CONST_UNSIGNED_INTEGER_MASK)
-            return (double)(node->value.ulong_val);
-        else if (type && CONST_FLOAT_MASK)
-            return node->value.double_val;
-        else
-        {
-            fprintf(stderr, "[Error] Cannot cast to double in %s\n", __func__);
-            return 0;
-        }
-    }
-}
-#endif
-
 void DebugProgramNode(Program_node* prog)
 {
     if (!prog) return;

@@ -53,7 +53,7 @@ StmtRepresentation* TraceExpressionStmt(ExpressionStatement*);
 SemanticRepresentation* TraceExprNode(Expression_node*);
 SymbolTableEntry_list* TraceDeclNode(Declaration_node*);
 SemanticRepresentation* TraceExprNode(Expression_node*);
-TypeDescriptor* MergeTypeDesc(TypeDescriptor*, TypeDescriptor*);
+TypeDescriptor* ComputeAndCreateTypeDesc(TypeDescriptor*, TypeDescriptor*);
 SEMANTIC_VALUE_TYPE TypeDescToSemanticValueType(TypeDescriptor*);
 void GetValueInSemanticValue(SEMANTIC_VALUE_TYPE, SemanticValue*, void*);
 SemanticValue* CreateEmptySemanticValue(void);

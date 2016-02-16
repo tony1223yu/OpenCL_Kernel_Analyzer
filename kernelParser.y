@@ -106,8 +106,7 @@ Expression_node* CreateNormalExprNode(EXPRESSION_KIND kind, Expression_node* lef
     ret->right_operand = right;
     ret->next = NULL;
 
-    /* set the content of the union space to 0 */
-    ret->direct_expr.identifier = NULL;
+    memset(&(ret->direct_expr), 0, sizeof(ret->direct_expr));
     return ret;
 }
 
@@ -510,7 +509,7 @@ TypeDescriptor* CreateScalarTypeDesc(OPENCL_DATA_TYPE type, char* struct_name)
 
 TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right)
 {
-    TypeDescriptor* ret = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
+    TypeDescriptor* ret = NULL;
 
     if ((left == NULL) && (right == NULL))
     {
@@ -518,107 +517,18 @@ TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right
     }
     else if (left == NULL)
     {
-        ArrayDesc_node* iterArray = right->array_desc_head;
-        Parameter_node* iterParam = right->parameter_head;
-
-        ret->type = right->type;
-        ret->kind = right->kind;
-        ret->array_desc_head = NULL;
-        ret->array_desc_tail = NULL;
-        ret->parameter_head = NULL;
-        ret->parameter_tail = NULL;
-
-        if (right->struct_name)
-            ret->struct_name = strdup(right->struct_name);
-        else
-            ret->struct_name = NULL;
-
-        while (iterArray != NULL)
-        {
-            ArrayDesc_node* tmp = DuplicateArrayDesc(iterArray);
-            if (ret->array_desc_head == NULL)
-            {
-                ret->array_desc_head = tmp;
-                ret->array_desc_tail = tmp;
-            }
-            else
-            {
-                ret->array_desc_tail->next = tmp;
-                ret->array_desc_tail = tmp;
-            }
-            iterArray = iterArray->next;
-        }
-
-        while (iterParam != NULL)
-        {
-            Parameter_node* tmp = DuplicateParamNode(iterParam);
-            if (ret->parameter_head == NULL)
-            {
-                ret->parameter_head = tmp;
-                ret->parameter_tail = tmp;
-            }
-            else
-            {
-                ret->parameter_tail->next = tmp;
-                ret->parameter_tail = tmp;
-            }
-            iterParam = iterParam->next;
-        }
+        ret = DuplicateTypeDesc(right);
     }
     else if (right == NULL)
     {
-        ArrayDesc_node* iterArray = left->array_desc_head;
-        Parameter_node* iterParam = left->parameter_head;
-
-        ret->type = left->type;
-        ret->kind = left->kind;
-        ret->array_desc_head = NULL;
-        ret->array_desc_tail = NULL;
-        ret->parameter_head = NULL;
-        ret->parameter_tail = NULL;
-
-        if (left->struct_name)
-            ret->struct_name = strdup(left->struct_name);
-        else
-            ret->struct_name = NULL;
-
-        while (iterArray != NULL)
-        {
-            ArrayDesc_node* tmp = DuplicateArrayDesc(iterArray);
-            if (ret->array_desc_head == NULL)
-            {
-                ret->array_desc_head = tmp;
-                ret->array_desc_tail = tmp;
-            }
-            else
-            {
-                ret->array_desc_tail->next = tmp;
-                ret->array_desc_tail = tmp;
-            }
-            iterArray = iterArray->next;
-        }
-
-        while (iterParam != NULL)
-        {
-            Parameter_node* tmp = DuplicateParamNode(iterParam);
-            if (ret->parameter_head == NULL)
-            {
-                ret->parameter_head = tmp;
-                ret->parameter_tail = tmp;
-            }
-            else
-            {
-                ret->parameter_tail->next = tmp;
-                ret->parameter_tail = tmp;
-            }
-            iterParam = iterParam->next;
-        }
+        ret = DuplicateTypeDesc(left);
     }
     else
     {
         ArrayDesc_node* iterArray;
         Parameter_node* iterParam;
 
+        ret = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
         ret->type = left->type;
         ret->array_desc_head = NULL;
         ret->array_desc_tail = NULL;
@@ -670,7 +580,14 @@ TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right
             iterArray = iterArray->next;
         }
 
-        if (left->kind == TYPE_WITH_PARAM)
+
+        if ((left->kind == TYPE_WITH_PARAM) && (right->kind == TYPE_WITH_PARAM))
+        {
+            fprintf(stderr, "[Error] Redefined parameter information in %s\n", __func__);
+            ret->parameter_head = NULL;
+            ret->parameter_tail = NULL;
+        }
+        else if (left->kind == TYPE_WITH_PARAM)
         {
             iterParam = left->parameter_head;
             while (iterParam != NULL)
@@ -863,26 +780,35 @@ SelectionStatement* MergeSelectionStmt(SelectionStatement* left, SelectionStatem
 
 Function_node* CreateFunctionNode(TypeDescriptor* type, Declaration_desc_node* decl_desc, CompoundStatement* compound_stmt)
 {
-    Function_node* ret = (Function_node*) malloc(sizeof(Function_node));
-    ret->function_name = strdup(decl_desc->identifier_name);
     if (decl_desc->identifier_type == NULL)
-        fprintf(stderr, "[Error] No parameter declaration in %s\n", __func__);
+    {
+        fprintf(stderr, "[Error] NULL type descriptor of declarator in %s\n", __func__);
+        return NULL;
+    }
+    else if (decl_desc->identifier_type->kind != TYPE_WITH_PARAM)
+    {
+        fprintf(stderr, "[Error] No parameter declaration in function in %s\n", __func__);
+        return NULL;
+    }
     else
     {
+        Function_node* ret = (Function_node*) malloc(sizeof(Function_node));
+        ret->function_name = decl_desc->identifier_name;
         ret->parameter_head = decl_desc->identifier_type->parameter_head;
         ret->parameter_tail = decl_desc->identifier_type->parameter_tail;
+        ret->content_statement = compound_stmt;
+        ret->next = NULL;
+        ret->return_type = MixAndCreateTypeDesc(type, decl_desc->identifier_type);
+
+        decl_desc->identifier_name = NULL;
         decl_desc->identifier_type->parameter_head = NULL;
         decl_desc->identifier_type->parameter_tail = NULL;
         decl_desc->identifier_type->kind = TYPE_WITHOUT_PARAM;
 
-        ret->return_type = MixAndCreateTypeDesc(type, decl_desc->identifier_type);
-
         DeleteTypeDesc(type);
-        DeleteDeclDescNode(decl_desc); // Error if we free decl_desc
+        DeleteDeclDescNode(decl_desc);
+        return ret;
     }
-    ret->content_statement = compound_stmt;
-    ret->next = NULL;
-    return ret;
 }
 
 Program_node* CreateProgramNode(void)
@@ -958,7 +884,6 @@ TypeName_node* CreateTypeNameNode(char* name, TypeDescriptor* type)
 {
     if (CheckInTypeNameTable(typeTable, name))
     {
-        // TODO
         fprintf(stderr, "[Error] Given identifier is already a type in %s\n", __func__);
         return NULL;
     }
@@ -1132,7 +1057,7 @@ Declaration_desc_node* DuplicateDeclDescNode(Declaration_desc_node* desc)
 
         // TODO
         if (desc->init_expression != NULL)
-            fprintf(stderr, "[Error] Cannot duplicate declaration node with initial expression\n");
+            fprintf(stderr, "[Error] Cannot duplicate declaration node with initial expression for now\n");
         else
             ret->init_expression = NULL;
 

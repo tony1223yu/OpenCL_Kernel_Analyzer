@@ -621,7 +621,7 @@ SEMANTIC_VALUE_TYPE TypeDescToSemanticValueType(TypeDescriptor* type)
     }
 }
 
-TypeDescriptor* MergeTypeDesc(TypeDescriptor* left, TypeDescriptor* right)
+TypeDescriptor* ComputeAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right)
 {
     if (!left && !right)
     {
@@ -640,14 +640,17 @@ TypeDescriptor* MergeTypeDesc(TypeDescriptor* left, TypeDescriptor* right)
     {
         if ((left->array_desc_head != NULL) || (right->array_desc_head != NULL))
         {
+            fprintf(stderr, "[Error] Array/Pointer type in %s\n", __func__);
             return CreateScalarTypeDesc(NONE_TYPE, NULL);
         }
         else if ((left->kind == TYPE_WITH_PARAM) || (right->kind == TYPE_WITH_PARAM))
         {
+            fprintf(stderr, "[Error] Function type in %s\n", __func__);
             return CreateScalarTypeDesc(NONE_TYPE, NULL);
         }
         else if ((left->type & CONST_OTHER_MASK) || (right->type & CONST_OTHER_MASK))
         {
+            fprintf(stderr, "[Error] Unsupported type in %s\n", __func__);
             return CreateScalarTypeDesc(NONE_TYPE, NULL);
         }
         else
@@ -821,7 +824,7 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                         result->type = DuplicateTypeDesc(new_entry->type);
                         result->value = DuplicateSemanticValue(new_entry->value);
                         result->lvalue = new_entry;
-                        result->next = NULL;
+                        result->next = left_value->next;
                         DeleteSemanticRepresentation(left_value);
                     }
                     break;
@@ -1576,7 +1579,12 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
         else
         {
             /* Arithmetic operations would always return bigger type */
-            ret->type = MergeTypeDesc(left->type, right->type);
+            if (left && right)
+                ret->type = ComputeAndCreateTypeDesc(left->type, right->type);
+            else if (left)
+                ret->type = DuplicateTypeDesc(left->type);
+            else if (right)
+                ret->type = DuplicateTypeDesc(right->type);
         }
         ret->value->type = TypeDescToSemanticValueType(ret->type);
 
@@ -1720,12 +1728,140 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 currOP = CreateOperation(ret->type, MODULAR_OP);
                 break;
             case POST_INCREASE_OP:
+                {
+                    SymbolTableEntry* entry = left->lvalue;
+                    if (entry == NULL)
+                    {
+                        fprintf(stderr, "[Error] Invalid lvalue in post increase operator in %s\n", __func__);
+                    }
+                    else
+                    {
+                        if(ret->value->type == VALUE_SIGNED_INTEGER)
+                        {
+                            long left_val;
+                            GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.long_val = (left_val + 1);
+                            ret->value->constVal.long_val = left_val;
+                        }
+                        else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                        {
+                            unsigned long left_val;
+                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.ulong_val = (left_val + 1);
+                            ret->value->constVal.ulong_val = left_val;
+                        }
+                        else if(ret->value->type == VALUE_FLOAT)
+                        {
+                            unsigned long left_val;
+                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.ulong_val = (left_val + 1);
+                            ret->value->constVal.double_val = left_val;
+                        }
+                        currOP = CreateOperation(ret->type, ADDITION_OP);
+                    }
+                }
                 break;
             case POST_DECREASE_OP:
+                {
+                    SymbolTableEntry* entry = left->lvalue;
+                    if (entry == NULL)
+                    {
+                        fprintf(stderr, "[Error] Invalid lvalue in post increase operator in %s\n", __func__);
+                    }
+                    else
+                    {
+                        if(ret->value->type == VALUE_SIGNED_INTEGER)
+                        {
+                            long left_val;
+                            GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.long_val = (left_val - 1);
+                            ret->value->constVal.long_val = left_val;
+                        }
+                        else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                        {
+                            unsigned long left_val;
+                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.ulong_val = (left_val - 1);
+                            ret->value->constVal.ulong_val = left_val;
+                        }
+                        else if(ret->value->type == VALUE_FLOAT)
+                        {
+                            unsigned long left_val;
+                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.ulong_val = (left_val - 1);
+                            ret->value->constVal.double_val = left_val;
+                        }
+                        currOP = CreateOperation(ret->type, SUBTRACTION_OP);
+                    }
+                }
                 break;
             case PRE_INCREASE_OP:
+                {
+                    SymbolTableEntry* entry = left->lvalue;
+                    if (entry == NULL)
+                    {
+                        fprintf(stderr, "[Error] Invalid lvalue in post increase operator in %s\n", __func__);
+                    }
+                    else
+                    {
+                        if(ret->value->type == VALUE_SIGNED_INTEGER)
+                        {
+                            long left_val;
+                            GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.long_val = (left_val + 1);
+                            ret->value->constVal.long_val = (left_val + 1);
+                        }
+                        else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                        {
+                            unsigned long left_val;
+                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.ulong_val = (left_val + 1);
+                            ret->value->constVal.ulong_val = (left_val + 1);
+                        }
+                        else if(ret->value->type == VALUE_FLOAT)
+                        {
+                            unsigned long left_val;
+                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.ulong_val = (left_val + 1);
+                            ret->value->constVal.double_val = (left_val + 1);
+                        }
+                        currOP = CreateOperation(ret->type, ADDITION_OP);
+                    }
+                }
                 break;
             case PRE_DECREASE_OP:
+                {
+                    SymbolTableEntry* entry = left->lvalue;
+                    if (entry == NULL)
+                    {
+                        fprintf(stderr, "[Error] Invalid lvalue in post increase operator in %s\n", __func__);
+                    }
+                    else
+                    {
+                        if(ret->value->type == VALUE_SIGNED_INTEGER)
+                        {
+                            long left_val;
+                            GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.long_val = (left_val - 1);
+                            ret->value->constVal.long_val = (left_val - 1);
+                        }
+                        else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                        {
+                            unsigned long left_val;
+                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.ulong_val = (left_val - 1);
+                            ret->value->constVal.ulong_val = (left_val - 1);
+                        }
+                        else if(ret->value->type == VALUE_FLOAT)
+                        {
+                            unsigned long left_val;
+                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                            entry->value->constVal.ulong_val = (left_val - 1);
+                            ret->value->constVal.double_val = (left_val - 1);
+                        }
+                        currOP = CreateOperation(ret->type, SUBTRACTION_OP);
+                    }
+                }
                 break;
             case SHIFT_LEFT_OP:
             case ASSIGNMENT_LEFT:
