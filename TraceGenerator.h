@@ -63,6 +63,8 @@ SymbolTableEntry* FindSymbolInSymTable(SymbolTable*, char*);
 SymbolTableEntry* FindMemberInSymTable(SymbolTableEntry*, char*);
 Operation* CreateOperation(TypeDescriptor*, EXPRESSION_KIND);
 Operation_list* AppendOperationToList(Operation_list*, Operation*);
+void ShowOPTrace(Operation_list*);
+void GetOperationName(Operation*, char*);
 void AddDependency(Operation*, Operation*, DEPENDENCY_KIND);
 Dependency* CreateDependency(Operation*, unsigned long);
 

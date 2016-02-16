@@ -1259,6 +1259,262 @@ StmtRepresentation* TraceFuncNode(Program_node* prog, char* func_name, SemanticR
     }
 }
 
+void GetOperationName(Operation* op, char* name)
+{
+    strcpy(name, "");
+    if (!op)
+        return;
+    else
+    {
+        switch (op->type)
+        {
+            case NONE_TYPE:
+                strcat(name, "NONE_");
+                break;
+            case STRUCT_TYPE:
+                strcat(name, "STRUCT_");
+                break;
+            case UNION_TYPE:
+                strcat(name, "UNION_");
+                break;
+            case BOOL_TYPE:
+                strcat(name, "BOOL_");
+                break;
+            case HALF_TYPE:
+                strcat(name, "HALF_");
+                break;
+            case VOID_TYPE:
+                strcat(name, "VOID_");
+                break;
+            case CHAR_TYPE:
+                strcat(name, "CHAR_");
+                break;
+            case CHAR2_TYPE:
+                strcat(name, "CHAR2_");
+                break;
+            case CHAR4_TYPE:
+                strcat(name, "CHAR4_");
+                break;
+            case CHAR8_TYPE:
+                strcat(name, "CHAR8_");
+                break;
+            case CHAR16_TYPE:
+                strcat(name, "CHAR16_");
+                break;
+            case UCHAR_TYPE:
+                strcat(name, "UCHAR_");
+                break;
+            case UCHAR2_TYPE:
+                strcat(name, "UCHAR2_");
+                break;
+            case UCHAR4_TYPE:
+                strcat(name, "UCHAR4_");
+                break;
+            case UCHAR8_TYPE:
+                strcat(name, "UCHAR8_");
+                break;
+            case UCHAR16_TYPE:
+                strcat(name, "UCHAR16_");
+                break;
+            case SHORT_TYPE:
+                strcat(name, "SHORT_");
+                break;
+            case SHORT2_TYPE:
+                strcat(name, "SHORT2_");
+                break;
+            case SHORT4_TYPE:
+                strcat(name, "SHORT4_");
+                break;
+            case SHORT8_TYPE:
+                strcat(name, "SHORT8_");
+                break;
+            case SHORT16_TYPE:
+                strcat(name, "SHORT16_");
+                break;
+            case USHORT_TYPE:
+                strcat(name, "USHORT_");
+                break;
+            case USHORT2_TYPE:
+                strcat(name, "USHORT2_");
+                break;
+            case USHORT4_TYPE:
+                strcat(name, "USHORT4_");
+                break;
+            case USHORT8_TYPE:
+                strcat(name, "USHORT8_");
+                break;
+            case USHORT16_TYPE:
+                strcat(name, "USHORT16_");
+                break;
+            case INT_TYPE:
+                strcat(name, "INT_");
+                break;
+            case INT2_TYPE:
+                strcat(name, "INT2_");
+                break;
+            case INT4_TYPE:
+                strcat(name, "INT4_");
+                break;
+            case INT8_TYPE:
+                strcat(name, "INT8_");
+                break;
+            case INT16_TYPE:
+                strcat(name, "INT16_");
+                break;
+            case UINT_TYPE:
+                strcat(name, "UINT_");
+                break;
+            case UINT2_TYPE:
+                strcat(name, "UINT2_");
+                break;
+            case UINT4_TYPE:
+                strcat(name, "UINT4_");
+                break;
+            case UINT8_TYPE:
+                strcat(name, "UINT8_");
+                break;
+            case UINT16_TYPE:
+                strcat(name, "UINT16_");
+                break;
+            case LONG_TYPE:
+                strcat(name, "LONG_");
+                break;
+            case LONG2_TYPE:
+                strcat(name, "LONG2_");
+                break;
+            case LONG4_TYPE:
+                strcat(name, "LONG4_");
+                break;
+            case LONG8_TYPE:
+                strcat(name, "LONG8_");
+                break;
+            case LONG16_TYPE:
+                strcat(name, "LONG16_");
+                break;
+            case ULONG_TYPE:
+                strcat(name, "ULONG_");
+                break;
+            case ULONG2_TYPE:
+                strcat(name, "ULONG2_");
+                break;
+            case ULONG4_TYPE:
+                strcat(name, "ULONG4_");
+                break;
+            case ULONG8_TYPE:
+                strcat(name, "ULONG8_");
+                break;
+            case ULONG16_TYPE:
+                strcat(name, "ULONG16_");
+                break;
+            case FLOAT_TYPE:
+                strcat(name, "FLOAT_");
+                break;
+            case FLOAT2_TYPE:
+                strcat(name, "FLOAT2_");
+                break;
+            case FLOAT4_TYPE:
+                strcat(name, "FLOAT4_");
+                break;
+            case FLOAT8_TYPE:
+                strcat(name, "FLOAT8_");
+                break;
+            case FLOAT16_TYPE:
+                strcat(name, "FLOAT16_");
+                break;
+            case DOUBLE_TYPE:
+                strcat(name, "DOUBLE_");
+                break;
+            case DOUBLE2_TYPE:
+                strcat(name, "DOUBLE2_");
+                break;
+            case DOUBLE4_TYPE:
+                strcat(name, "DOUBLE4_");
+                break;
+            case DOUBLE8_TYPE:
+                strcat(name, "DOUBLE8_");
+                break;
+            case DOUBLE16_TYPE:
+                strcat(name, "DOUBLE16_");
+                break;
+
+        }
+
+        switch (op->kind)
+        {
+            case NONE_OP:
+                strcat(name, "NONE_OP");
+                break;
+            case ADDITION_OP:
+                strcat(name, "ADDITION_OP");
+                break;
+            case SUBTRACTION_OP:
+                strcat(name, "SUBTRACTION_OP");
+                break;
+            case MULTIPLICATION_OP:
+                strcat(name, "MULTIPLICATION_OP");
+                break;
+            case DIVISION_OP:
+                strcat(name, "DIVISION_OP");
+                break;
+            case MODULAR_OP:
+                strcat(name, "MODULAR_OP");
+                break;
+            case POST_INCREASE_OP:
+                strcat(name, "POST_INCREASE_OP");
+                break;
+            case POST_DECREASE_OP:
+                strcat(name, "POST_DECREASE_OP");
+                break;
+            case PRE_INCREASE_OP:
+                strcat(name, "PRE_INCREASE_OP");
+                break;
+            case PRE_DECREASE_OP:
+                strcat(name, "PRE_DECREASE_OP");
+                break;
+            case SHIFT_LEFT_OP:
+                strcat(name, "SHIFT_LEFT_OP");
+                break;
+            case SHIFT_RIGHT_OP:
+                strcat(name, "SHIFT_RIGHT_OP");
+                break;
+            case LESS_OP:
+                strcat(name, "LESS_OP");
+                break;
+            case LESS_EQUAL_OP:
+                strcat(name, "LESS_EQUAL_OP");
+                break;
+            case GREATER_OP:
+                strcat(name, "GREATER_OP");
+                break;
+            case GREATER_EQUAL_OP:
+                strcat(name, "GREATER_EQUAL_OP");
+                break;
+            case EQUAL_OP:
+                strcat(name, "EQUAL_OP");
+                break;
+            case NOT_EQUAL_OP:
+                strcat(name, "NOT_EQUAL_OP");
+                break;
+            case BITWISE_AND_OP:
+                strcat(name, "BITWISE_AND_OP");
+                break;
+            case BITWISE_XOR_OP:
+                strcat(name, "BITWISE_XOR_OP");
+                break;
+            case BITWISE_OR_OP:
+                strcat(name, "BITWISE_OR_OP");
+                break;
+            case LOGICAL_AND_OP:
+                strcat(name, "LOGICAL_AND_OP");
+                break;
+            case LOGICAL_OR_OP:
+                strcat(name, "LOGICAL_OR_OP");
+                break;
+        }
+    }
+
+}
+
 void ShowOPTrace(Operation_list* list)
 {
     Operation* iterOP;
@@ -1269,7 +1525,10 @@ void ShowOPTrace(Operation_list* list)
         Operation* iterOP = list->operation_head;
         while (iterOP != NULL)
         {
-            printf("[#%lu] %d ", iterOP->id, iterOP->kind);
+            char name[100];
+            GetOperationName(iterOP, name);
+
+            printf("[#%lu] %-30s ", iterOP->id, name);
             if (iterOP->issue_dep)
                 printf("issue: #%lu, ", iterOP->issue_dep->targetOP->id);
             if (iterOP->structural_dep)
