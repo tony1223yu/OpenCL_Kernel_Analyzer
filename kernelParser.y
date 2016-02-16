@@ -1980,6 +1980,7 @@ struct_or_union_specifier
     }
     | struct_or_union TYPE_NAME
     {
+        // Since the typedef name can be used as struct name
         $$ = CreateScalarTypeDesc($1, $2);
     }
 	;

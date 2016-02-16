@@ -238,18 +238,12 @@ int check_type(void)
 */
     if(CheckInTypeNameTable(typeTable, yytext))
     {
-        // return char*
         yylval.ptr = strdup(yytext);
         return TYPE_NAME;
     }
     else
     {
         yylval.ptr = strdup(yytext);
-        if (!yylval.ptr)
-        {
-            fprintf(stderr, "out of memory\n");
-            exit(1);
-        }
         return IDENTIFIER;
     }
 }
