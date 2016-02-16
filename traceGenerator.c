@@ -1081,7 +1081,6 @@ StmtRepresentation* TraceIterationStmt(IterationStatement* stmt)
     else
     {
         int loop_terminated = 0;
-        StmtRepresentation* returnVal = NULL;
 
         /* INIT */
 
@@ -1142,7 +1141,9 @@ StmtRepresentation* TraceIterationStmt(IterationStatement* stmt)
                 long terminated_value;
                 GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->expression->value, &terminated_value);
                 if (!terminated_value)
+                {
                     loop_terminated = 1;
+                }
             }
             DeleteStmtRepresentation(result);
         }
@@ -1154,10 +1155,7 @@ StmtRepresentation* TraceIterationStmt(IterationStatement* stmt)
             DeleteSymTableLevel(symTable);
         }
 
-        if (returnVal == NULL)
-            returnVal = CreateStmtRepresentation(ITERATION_STMT, NULL);
-
-        return returnVal;
+        return CreateStmtRepresentation(ITERATION_STMT, NULL);
     }
 }
 
