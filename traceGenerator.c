@@ -1505,11 +1505,23 @@ void GetOperationName(Operation* op, char* name)
             case BITWISE_OR_OP:
                 strcat(name, "BITWISE_OR_OP");
                 break;
+            case BITWISE_COMPLEMENT_OP:
+                strcat(name, "BITWISE_COMPLEMENT_OP");
+                break;
+            case UNARY_PLUS_OP:
+                strcat(name, "UNARY_PLUS_OP");
+                break;
+            case UNARY_MINUS_OP:
+                strcat(name, "UNARY_MINUS_OP");
+                break;
             case LOGICAL_AND_OP:
                 strcat(name, "LOGICAL_AND_OP");
                 break;
             case LOGICAL_OR_OP:
                 strcat(name, "LOGICAL_OR_OP");
+                break;
+            case LOGICAL_COMPLEMENT_OP:
+                strcat(name, "LOGICAL_COMPLEMENT_OP");
                 break;
         }
     }
@@ -1563,12 +1575,22 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
             return DuplicateSemanticRepresentation(right);
         }
 
+        TypeDescriptor* large_type = NULL;
+        SEMANTIC_VALUE_TYPE large_value_type;
         SemanticRepresentation* ret = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
         Operation* currOP = NULL;
         ret->lvalue = NULL;
         ret->next = NULL;
         ret->value = CreateEmptySemanticValue();
 
+        if (left && right)
+            large_type = ComputeAndCreateTypeDesc(left->type, right->type);
+        else if (left)
+            large_type = DuplicateTypeDesc(left->type);
+        else if (right)
+            large_type = DuplicateTypeDesc(right->type);
+
+        /* Determine the type of the result */
         if (kind & LOGICAL_OP_MASK)
         {
             /* Logical operations would always return int */
@@ -1577,14 +1599,10 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
         else
         {
             /* Arithmetic operations would always return bigger type */
-            if (left && right)
-                ret->type = ComputeAndCreateTypeDesc(left->type, right->type);
-            else if (left)
-                ret->type = DuplicateTypeDesc(left->type);
-            else if (right)
-                ret->type = DuplicateTypeDesc(right->type);
+            ret->type = DuplicateTypeDesc(large_type);
         }
         ret->value->type = TypeDescToSemanticValueType(ret->type);
+        large_value_type = TypeDescToSemanticValueType(large_type);
 
         if ((left && left->value->kind == VALUE_UNDEFINED) || (right && right->value->kind == VALUE_UNDEFINED))
             ret->value->kind = VALUE_UNDEFINED;
@@ -1605,125 +1623,125 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
         {
             case ADDITION_OP:
             case ASSIGNMENT_ADD:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val + right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.ulong_val = (left_val + right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.double_val = (left_val + right_val);
                 }
-                currOP = CreateOperation(ret->type, ADDITION_OP);
+                currOP = CreateOperation(large_type, ADDITION_OP);
                 break;
             case SUBTRACTION_OP:
             case ASSIGNMENT_SUB:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val - right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.ulong_val = (left_val - right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.double_val = (left_val - right_val);
                 }
-                currOP = CreateOperation(ret->type, SUBTRACTION_OP);
+                currOP = CreateOperation(large_type, SUBTRACTION_OP);
                 break;
             case MULTIPLICATION_OP:
             case ASSIGNMENT_MUL:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val * right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.ulong_val = (left_val * right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.double_val = (left_val * right_val);
                 }
-                currOP = CreateOperation(ret->type, MULTIPLICATION_OP);
+                currOP = CreateOperation(large_type, MULTIPLICATION_OP);
                 break;
             case DIVISION_OP:
             case ASSIGNMENT_DIV:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val / right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.ulong_val = (left_val / right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.double_val = (left_val / right_val);
                 }
-                currOP = CreateOperation(ret->type, DIVISION_OP);
+                currOP = CreateOperation(large_type, DIVISION_OP);
                 break;
             case MODULAR_OP:
             case ASSIGNMENT_MOD:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val % right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.ulong_val = (left_val % right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"%%\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(ret->type, MODULAR_OP);
+                currOP = CreateOperation(large_type, MODULAR_OP);
                 break;
             case POST_INCREASE_OP:
                 {
@@ -1734,28 +1752,28 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     }
                     else
                     {
-                        if(ret->value->type == VALUE_SIGNED_INTEGER)
+                        if(large_value_type == VALUE_SIGNED_INTEGER)
                         {
                             long left_val;
                             GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.long_val = (left_val + 1);
                             ret->value->constVal.long_val = left_val;
                         }
-                        else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                        else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.ulong_val = (left_val + 1);
                             ret->value->constVal.ulong_val = left_val;
                         }
-                        else if(ret->value->type == VALUE_FLOAT)
+                        else if(large_value_type == VALUE_FLOAT)
                         {
-                            unsigned long left_val;
-                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.ulong_val = (left_val + 1);
+                            double left_val;
+                            GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                            entry->value->constVal.double_val = (left_val + 1);
                             ret->value->constVal.double_val = left_val;
                         }
-                        currOP = CreateOperation(ret->type, ADDITION_OP);
+                        currOP = CreateOperation(large_type, ADDITION_OP);
                     }
                 }
                 break;
@@ -1768,28 +1786,28 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     }
                     else
                     {
-                        if(ret->value->type == VALUE_SIGNED_INTEGER)
+                        if(large_value_type == VALUE_SIGNED_INTEGER)
                         {
                             long left_val;
                             GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.long_val = (left_val - 1);
                             ret->value->constVal.long_val = left_val;
                         }
-                        else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                        else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.ulong_val = (left_val - 1);
                             ret->value->constVal.ulong_val = left_val;
                         }
-                        else if(ret->value->type == VALUE_FLOAT)
+                        else if(large_value_type == VALUE_FLOAT)
                         {
-                            unsigned long left_val;
-                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.ulong_val = (left_val - 1);
+                            double left_val;
+                            GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                            entry->value->constVal.double_val = (left_val - 1);
                             ret->value->constVal.double_val = left_val;
                         }
-                        currOP = CreateOperation(ret->type, SUBTRACTION_OP);
+                        currOP = CreateOperation(large_type, SUBTRACTION_OP);
                     }
                 }
                 break;
@@ -1802,28 +1820,28 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     }
                     else
                     {
-                        if(ret->value->type == VALUE_SIGNED_INTEGER)
+                        if(large_value_type == VALUE_SIGNED_INTEGER)
                         {
                             long left_val;
                             GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.long_val = (left_val + 1);
                             ret->value->constVal.long_val = (left_val + 1);
                         }
-                        else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                        else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.ulong_val = (left_val + 1);
                             ret->value->constVal.ulong_val = (left_val + 1);
                         }
-                        else if(ret->value->type == VALUE_FLOAT)
+                        else if(large_value_type == VALUE_FLOAT)
                         {
-                            unsigned long left_val;
-                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.ulong_val = (left_val + 1);
+                            double left_val;
+                            GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                            entry->value->constVal.double_val = (left_val + 1);
                             ret->value->constVal.double_val = (left_val + 1);
                         }
-                        currOP = CreateOperation(ret->type, ADDITION_OP);
+                        currOP = CreateOperation(large_type, ADDITION_OP);
                     }
                 }
                 break;
@@ -1836,339 +1854,424 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     }
                     else
                     {
-                        if(ret->value->type == VALUE_SIGNED_INTEGER)
+                        if(large_value_type == VALUE_SIGNED_INTEGER)
                         {
                             long left_val;
                             GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.long_val = (left_val - 1);
                             ret->value->constVal.long_val = (left_val - 1);
                         }
-                        else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                        else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.ulong_val = (left_val - 1);
                             ret->value->constVal.ulong_val = (left_val - 1);
                         }
-                        else if(ret->value->type == VALUE_FLOAT)
+                        else if(large_value_type == VALUE_FLOAT)
                         {
-                            unsigned long left_val;
-                            GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.ulong_val = (left_val - 1);
+                            double left_val;
+                            GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                            entry->value->constVal.double_val = (left_val - 1);
                             ret->value->constVal.double_val = (left_val - 1);
                         }
-                        currOP = CreateOperation(ret->type, SUBTRACTION_OP);
+                        currOP = CreateOperation(large_type, SUBTRACTION_OP);
                     }
                 }
                 break;
             case SHIFT_LEFT_OP:
             case ASSIGNMENT_LEFT:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val << right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.ulong_val = (left_val << right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"<<\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(ret->type, SHIFT_LEFT_OP);
+                currOP = CreateOperation(large_type, SHIFT_LEFT_OP);
                 break;
             case SHIFT_RIGHT_OP:
             case ASSIGNMENT_RIGHT:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val >> right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.ulong_val = (left_val >> right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \">>\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(ret->type, SHIFT_RIGHT_OP);
+                currOP = CreateOperation(large_type, SHIFT_RIGHT_OP);
                 break;
             case BITWISE_AND_OP:
             case ASSIGNMENT_AND:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val & right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.ulong_val = (left_val & right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"&\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(ret->type, BITWISE_AND_OP);
+                currOP = CreateOperation(large_type, BITWISE_AND_OP);
                 break;
             case BITWISE_XOR_OP:
             case ASSIGNMENT_XOR:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val ^ right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.ulong_val = (left_val ^ right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"^\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(ret->type, BITWISE_XOR_OP);
+                currOP = CreateOperation(large_type, BITWISE_XOR_OP);
                 break;
             case BITWISE_OR_OP:
             case ASSIGNMENT_OR:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val | right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.ulong_val = (left_val | right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"|\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(ret->type, BITWISE_OR_OP);
+                currOP = CreateOperation(large_type, BITWISE_OR_OP);
+                break;
+            case BITWISE_COMPLEMENT_OP:
+                if(large_value_type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    ret->value->constVal.long_val = (~left_val);
+                }
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    ret->value->constVal.ulong_val = (~left_val);
+                }
+                else if(large_value_type == VALUE_FLOAT)
+                {
+                    fprintf(stderr, "[Error] Invalid operand type for operator \"~\" in %s\n", __func__);
+                }
+                currOP = CreateOperation(large_type, BITWISE_COMPLEMENT_OP);
+                break;
+             case UNARY_PLUS_OP:
+                if(large_value_type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    ret->value->constVal.long_val = (+left_val);
+                }
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    ret->value->constVal.ulong_val = (+left_val);
+                }
+                else if(large_value_type == VALUE_FLOAT)
+                {
+                    double left_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    ret->value->constVal.double_val = (+left_val);
+                }
+                currOP = CreateOperation(large_type, UNARY_PLUS_OP);
+                break;
+             case UNARY_MINUS_OP:
+                if(large_value_type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    ret->value->constVal.long_val = (-left_val);
+                }
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    ret->value->constVal.ulong_val = (-left_val);
+                }
+                else if(large_value_type == VALUE_FLOAT)
+                {
+                    double left_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    ret->value->constVal.double_val = (-left_val);
+                }
+                currOP = CreateOperation(large_type, UNARY_MINUS_OP);
                 break;
             case LESS_OP:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val < right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val < right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val < right_val);
                 }
-                currOP = CreateOperation(ret->type, LESS_OP);
+                currOP = CreateOperation(large_type, LESS_OP);
                 break;
             case LESS_EQUAL_OP:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val <= right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val <= right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val <= right_val);
                 }
-                currOP = CreateOperation(ret->type, LESS_EQUAL_OP);
+                currOP = CreateOperation(large_type, LESS_EQUAL_OP);
                 break;
             case GREATER_OP:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val > right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val > right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val > right_val);
                 }
-                currOP = CreateOperation(ret->type, GREATER_OP);
+                currOP = CreateOperation(large_type, GREATER_OP);
                 break;
             case GREATER_EQUAL_OP:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val >= right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val >= right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val >= right_val);
                 }
-                currOP = CreateOperation(ret->type, GREATER_EQUAL_OP);
+                currOP = CreateOperation(large_type, GREATER_EQUAL_OP);
                 break;
             case EQUAL_OP:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val == right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val == right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val == right_val);
                 }
-                currOP = CreateOperation(ret->type, EQUAL_OP);
+                currOP = CreateOperation(large_type, EQUAL_OP);
                 break;
             case NOT_EQUAL_OP:
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val != right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val != right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val != right_val);
                 }
-                currOP = CreateOperation(ret->type, NOT_EQUAL_OP);
+                currOP = CreateOperation(large_type, NOT_EQUAL_OP);
                 break;
             case LOGICAL_AND_OP: // TODO lazy evaluation
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val && right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val && right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val && right_val);
                 }
-                currOP = CreateOperation(ret->type, LOGICAL_AND_OP);
+                currOP = CreateOperation(large_type, LOGICAL_AND_OP);
                 break;
             case LOGICAL_OR_OP: // TODO lazy evaluation
-                if(ret->value->type == VALUE_SIGNED_INTEGER)
+                if(large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val || right_val);
                 }
-                else if(ret->value->type == VALUE_UNSIGNED_INTEGER)
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val || right_val);
                 }
-                else if(ret->value->type == VALUE_FLOAT)
+                else if(large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val || right_val);
                 }
-                currOP = CreateOperation(ret->type, LOGICAL_OR_OP);
+                currOP = CreateOperation(large_type, LOGICAL_OR_OP);
                 break;
+            case LOGICAL_COMPLEMENT_OP:
+                if(large_value_type == VALUE_SIGNED_INTEGER)
+                {
+                    long left_val;
+                    GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
+                    ret->value->constVal.long_val = (!left_val);
+                }
+                else if(large_value_type == VALUE_UNSIGNED_INTEGER)
+                {
+                    unsigned long left_val;
+                    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
+                    ret->value->constVal.long_val = (!left_val);
+                }
+                else if(large_value_type == VALUE_FLOAT)
+                {
+                    double left_val;
+                    GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
+                    ret->value->constVal.long_val = (!left_val);
+                }
+                currOP = CreateOperation(large_type, LOGICAL_COMPLEMENT_OP);
+                break;
+
             default:
                 break;
         }
 
-        // TODO dependency
+        DeleteTypeDesc(large_type);
+        large_type = NULL;
 
+        // TODO dependency
         if (currOP != NULL)
         {
             if (left && left->value)

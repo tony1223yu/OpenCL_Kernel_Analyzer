@@ -503,12 +503,24 @@ void DebugExprKind(EXPRESSION_KIND kind, char* name)
         case BITWISE_OR_OP:
 			sprintf(name, "BITWISE_OR_OP");
 			break;
+        case BITWISE_COMPLEMENT_OP:
+            sprintf(name, "BITWISE_COMPLEMENT_OP");
+            break;
+        case UNARY_PLUS_OP:
+            sprintf(name, "UNARY_PLUS_OP");
+            break;
+        case UNARY_MINUS_OP:
+            sprintf(name, "UNARY_MINUS_OP");
+            break;
         case LOGICAL_AND_OP:
 			sprintf(name, "LOGICAL_AND_OP");
 			break;
         case LOGICAL_OR_OP:
 			sprintf(name, "LOGICAL_OR_OP");
 			break;
+        case LOGICAL_COMPLEMENT_OP:
+            sprintf(name, "LOGICAL_COMPLEMENT_OP");
+            break;
         case ASSIGNMENT_NONE:
 			sprintf(name, "ASSIGNMENT_NONE");
 			break;

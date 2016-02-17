@@ -1628,7 +1628,7 @@ void DeleteTypeNameNode(TypeName_node* node)
 %type <comp_stmt> compound_statement block_item_list block_item
 %type <sel_stmt> selection_statement
 %type <iter_stmt> iteration_statement
-%type <expr_kind> assignment_operator
+%type <expr_kind> assignment_operator unary_operator
 %type <param_node_list> parameter_type_list parameter_list
 %type <param_node> parameter_declaration
 %type <func_node> function_definition
@@ -1703,7 +1703,7 @@ unary_expression
     }
 	| unary_operator cast_expression
     {
-        $$ = $2;
+        $$ = CreateNormalExprNode($1, $2, NULL);;
     }
 	| SIZEOF unary_expression {$$ = NULL;}
 	| SIZEOF '(' type_name ')' {$$ = NULL;}
@@ -1712,10 +1712,10 @@ unary_expression
 unary_operator
 	: '&'
 	| '*'
-	| '+'
-	| '-'
-    | '~'
-	| '!'
+	| '+' {$$ = UNARY_PLUS_OP;}
+	| '-' {$$ = UNARY_MINUS_OP;}
+    | '~' {$$ = BITWISE_COMPLEMENT_OP;}
+	| '!' {$$ = LOGICAL_COMPLEMENT_OP;}
 	;
 
 cast_expression
