@@ -54,6 +54,7 @@ SemanticRepresentation* TraceExprNode(Expression_node*);
 SymbolTableEntry_list* TraceDeclNode(Declaration_node*);
 SemanticRepresentation* TraceExprNode(Expression_node*);
 TypeDescriptor* ComputeAndCreateTypeDesc(TypeDescriptor*, TypeDescriptor*);
+TypeDescriptor* DereferenceAndCreateTypeDesc(TypeDescriptor*);
 SEMANTIC_VALUE_TYPE TypeDescToSemanticValueType(TypeDescriptor*);
 void GetValueInSemanticValue(SEMANTIC_VALUE_TYPE, SemanticValue*, void*);
 SemanticValue* CreateEmptySemanticValue(void);

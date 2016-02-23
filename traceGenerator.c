@@ -217,7 +217,7 @@ Operation* CreateOperation(TypeDescriptor* type, EXPRESSION_KIND kind)
         ret->kind = kind;
 
         if (type->array_desc_head != NULL)
-            ret->type = NONE_TYPE;
+            ret->type = POINTER_TYPE;
         else if (type->kind == TYPE_WITH_PARAM)
             ret->type = NONE_TYPE;
         else
@@ -621,6 +621,36 @@ SEMANTIC_VALUE_TYPE TypeDescToSemanticValueType(TypeDescriptor* type)
     }
 }
 
+TypeDescriptor* DereferenceAndCreateTypeDesc(TypeDescriptor* type)
+{
+    if (!type)
+        return NULL;
+    else
+    {
+        TypeDescriptor* ret = DuplicateTypeDesc(type);
+        if (ret->array_desc_head == NULL)
+        {
+            fprintf(stderr, "[Error] given type cannot be dereferenced in %s\n", __func__);
+        }
+        else
+        {
+            if (ret->array_desc_head == ret->array_desc_tail)
+            {
+                DeleteArrayDescNode(ret->array_desc_head);
+                ret->array_desc_head = NULL;
+                ret->array_desc_tail = NULL;
+            }
+            else
+            {
+                ArrayDesc_node* tmp = ret->array_desc_head->next;
+                DeleteArrayDescNode(ret->array_desc_head);
+                ret->array_desc_head = tmp;
+            }
+        }
+        return ret;
+    }
+}
+
 TypeDescriptor* ComputeAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right)
 {
     if (!left && !right)
@@ -781,6 +811,33 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                 case EXPRESSION_SUBSCRIPT:
                     {
                         /* Memory access */
+                        if (right_value != NULL)
+                            fprintf(stderr, "[Error] right operand should not appear in memory access node in %s\n", __func__);
+
+                        Operation* currOP;
+                        StmtRepresentation* index = TraceExpressionStmt(node->direct_expr.subscript);
+                        result = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
+                        result->type = DereferenceAndCreateTypeDesc(left_value->type);
+                        result->value = CreateEmptySemanticValue();
+                        result->value->kind = VALUE_IRREGULAR;
+
+                        currOP = CreateOperation(result->type, MEMORY_OP);
+                        if (currOP != NULL)
+                        {
+                            if (left_value && left_value->value)
+                                AddDependency(left_value->value->lastOP, currOP, DATA_DEPENDENCY);
+
+                            if (index && index->expression && index->expression->value)
+                                AddDependency(index->expression->value->lastOP, currOP, DATA_DEPENDENCY);
+
+                            AddDependency(lastIssueOP, currOP, ISSUE_DEPENDENCY);
+                            lastIssueOP = currOP;
+
+                            opTrace = AppendOperationToList(opTrace, currOP);
+                            result->value->lastOP = currOP;
+                        }
+                        DeleteSemanticRepresentation(left_value);
+                        DeleteStmtRepresentation(index);
                     }
                     break;
                 case EXPRESSION_FUNCTION:
@@ -1444,6 +1501,9 @@ void GetOperationName(Operation* op, char* name)
         {
             case NONE_OP:
                 strcat(name, "NONE_OP");
+                break;
+            case MEMORY_OP:
+                strcat(name, "MEMORY_OP");
                 break;
             case ADDITION_OP:
                 strcat(name, "ADDITION_OP");
