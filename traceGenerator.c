@@ -1834,6 +1834,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             ret->value->constVal.double_val = left_val;
                         }
                         currOP = CreateOperation(large_type, ADDITION_OP);
+                        entry->value->lastOP = currOP;
                     }
                 }
                 break;
@@ -1868,6 +1869,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             ret->value->constVal.double_val = left_val;
                         }
                         currOP = CreateOperation(large_type, SUBTRACTION_OP);
+                        entry->value->lastOP = currOP;
                     }
                 }
                 break;
@@ -1902,6 +1904,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             ret->value->constVal.double_val = (left_val + 1);
                         }
                         currOP = CreateOperation(large_type, ADDITION_OP);
+                        entry->value->lastOP = currOP;
                     }
                 }
                 break;
@@ -1936,6 +1939,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             ret->value->constVal.double_val = (left_val - 1);
                         }
                         currOP = CreateOperation(large_type, SUBTRACTION_OP);
+                        entry->value->lastOP = currOP;
                     }
                 }
                 break;

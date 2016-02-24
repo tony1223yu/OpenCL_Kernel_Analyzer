@@ -867,7 +867,7 @@ int main(int argc, char *argv[])
 
     result = TraceFuncNode(program, funcName, NULL);
     DeleteStmtRepresentation(result);
-//    ShowOPTrace(opTrace);
+    ShowOPTrace(opTrace);
 
     /* Delete Symbol Table */
 
