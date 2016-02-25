@@ -202,7 +202,7 @@ Operation_list* AppendOperationToList(Operation_list* origin_list, Operation* ne
     }
 }
 
-Operation* CreateOperation(TypeDescriptor* type, EXPRESSION_KIND kind)
+Operation* CreateOperation(TypeDescriptor* type, EXPRESSION_KIND kind, SemanticValue* value)
 {
     if (!type)
     {
@@ -215,6 +215,7 @@ Operation* CreateOperation(TypeDescriptor* type, EXPRESSION_KIND kind)
 
         ret->id = g_operation_id ++;
         ret->kind = kind;
+        ret->value = value;
 
         if (type->array_desc_head != NULL)
             ret->type = POINTER_TYPE;
@@ -546,29 +547,29 @@ void DeleteSemanticRepresentation(SemanticRepresentation* value)
     }
 }
 
-/* return 1 if empty, 0 otherwise */
-int CheckEmptyNDRangeVector(NDRangeVector vector)
+/* return 0 if zero, 1 otherwise */
+int CheckNDRangeVector(NDRangeVector vector)
 {
     unsigned long result;
-    result = vector.globalIdx0 | vector.globalIdx1 | vector.globalIdx2
-        | vector.groupIdx0 | vector.groupIdx1 | vector.groupIdx2
-        | vector.localIdx0 | vector.localIdx1 | vector.localIdx2;
+    result = vector.globalIdx[0] | vector.globalIdx[1] | vector.globalIdx[2]
+        | vector.groupIdx[0] | vector.groupIdx[1] | vector.groupIdx[2]
+        | vector.localIdx[0] | vector.localIdx[1] | vector.localIdx[2];
 
-    return (result == 0) ? 1 : 0;
+    return (result == 0) ? 0 : 1;
 }
 
-NDRangeVector CreateEmptyNDRangeVector()
+NDRangeVector CreateZeroNDRangeVector()
 {
     NDRangeVector ret;
-    ret.globalIdx0 = 0;
-    ret.globalIdx1 = 0;
-    ret.globalIdx2 = 0;
-    ret.groupIdx0 = 0;
-    ret.groupIdx1 = 0;
-    ret.groupIdx2 = 0;
-    ret.localIdx0 = 0;
-    ret.localIdx1 = 0;
-    ret.localIdx2 = 0;
+    ret.globalIdx[0] = 0;
+    ret.globalIdx[1] = 0;
+    ret.globalIdx[2] = 0;
+    ret.groupIdx[0] = 0;
+    ret.groupIdx[1] = 0;
+    ret.groupIdx[2] = 0;
+    ret.localIdx[0] = 0;
+    ret.localIdx[1] = 0;
+    ret.localIdx[2] = 0;
     return ret;
 }
 
@@ -578,7 +579,7 @@ SemanticValue* CreateZeroSemanticValue(SEMANTIC_VALUE_TYPE type)
     ret->kind = VALUE_REGULAR;
     ret->type = type;
     ret->lastOP = NULL;
-    ret->vector = CreateEmptyNDRangeVector();
+    ret->vector = CreateZeroNDRangeVector();
     if (type == VALUE_SIGNED_INTEGER)
         ret->constVal.long_val = 0;
     else if ((type == VALUE_UNSIGNED_INTEGER) || (type == VALUE_POINTER))
@@ -596,7 +597,7 @@ SemanticValue* CreateEmptySemanticValue()
     ret->kind = VALUE_REGULAR;
     ret->type = VALUE_OTHER;
     ret->lastOP = NULL;
-    ret->vector = CreateEmptyNDRangeVector();
+    ret->vector = CreateZeroNDRangeVector();
     memset(&(ret->constVal), 0, sizeof(ret->constVal));
     return ret;
 }
@@ -744,6 +745,7 @@ SemanticRepresentation_list* AppendSemanticRepresentationToList(SemanticRepresen
     }
 }
 
+// Only return constVal part in SemanticValue
 void GetValueInSemanticValue(SEMANTIC_VALUE_TYPE type, SemanticValue* value, void* ret)
 {
     if (type == VALUE_SIGNED_INTEGER)
@@ -841,8 +843,8 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                         result->value = CreateEmptySemanticValue();
                         result->value->kind = VALUE_IRREGULAR;
 
-                        madOP = CreateOperation(DuplicateTypeDesc(left_value->type), MAD_OP); // for index calculation
-                        memOP = CreateOperation(result->type, MEMORY_OP);
+                        madOP = CreateOperation(DuplicateTypeDesc(left_value->type), MAD_OP, NULL); // for index calculation
+                        memOP = CreateOperation(result->type, MEMORY_OP, DuplicateSemanticValue(index->expression->value)); // TODO: calculate the actual address instead of index
                         if ((madOP != NULL) && (memOP != NULL))
                         {
                             if (left_value && left_value->value)
@@ -910,6 +912,7 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                     }
                     break;
                 case EXPRESSION_TYPECAST:
+                    // TODO type casting expression
                     break;
                 case EXPRESSION_EXPRSTMT:
                     {
@@ -942,19 +945,25 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                 {
                     long val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, result->value, &val);
-                    printf("Assign value : %ld\n", val);
+                    printf("Assign value : %ld", val);
+                    ShowNDRangeVector(result->value->vector);
+                    printf("\n");
                 }
                 else if ((result->value->type == VALUE_UNSIGNED_INTEGER) || (result->value->type == VALUE_POINTER))
                 {
                     unsigned long val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, result->value, &val);
-                    printf("Assign value : %lu\n", val);
+                    printf("Assign value : %lu", val);
+                    ShowNDRangeVector(result->value->vector);
+                    printf("\n");
                 }
                 else if (result->value->type == VALUE_FLOAT)
                 {
                     double val;
                     GetValueInSemanticValue(VALUE_FLOAT, result->value, &val);
-                    printf("Assign value : %lf\n", val);
+                    printf("Assign value : %lf", val);
+                    ShowNDRangeVector(result->value->vector);
+                    printf("\n");
                 }
                 AssignToSymTableEntry(left_value->lvalue, result);
             }
@@ -999,19 +1008,25 @@ SymbolTableEntry_list* TraceDeclNode(Declaration_node* node)
                 {
                     long val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, init_value->value, &val);
-                    printf("Initial value : %ld\n", val);
+                    printf("Initial value : %ld", val);
+                    ShowNDRangeVector(init_value->value->vector);
+                    printf("\n");
                 }
                 else if ((init_value->value->type == VALUE_UNSIGNED_INTEGER) || (init_value->value->type == VALUE_POINTER))
                 {
                     unsigned long val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, init_value->value, &val);
-                    printf("Initial value : %lu\n", val);
+                    printf("Initial value : %lu", val);
+                    ShowNDRangeVector(init_value->value->vector);
+                    printf("\n");
                 }
                 else if (init_value->value->type == VALUE_FLOAT)
                 {
                     double val;
                     GetValueInSemanticValue(VALUE_FLOAT, init_value->value, &val);
-                    printf("Initial value : %lf\n", val);
+                    printf("Initial value : %lf", val);
+                    ShowNDRangeVector(init_value->value->vector);
+                    printf("\n");
                 }
 
                 AssignToSymTableEntry(entry, init_value);
@@ -1351,22 +1366,34 @@ StmtRepresentation* TraceFuncNode(Program_node* prog, char* func_name, SemanticR
 int CheckPrimitiveFunc(char* name)
 {
     if (strcmp(name, "get_global_id") == 0) return 1;
-    if (strcmp(name, "get_local_id") == 0) return 1;
-    if (strcmp(name, "get_group_id") == 0) return 1;
-    if (strcmp(name, "get_num_groups") == 0) return 1;
-    if (strcmp(name, "get_work_dim") == 0) return 1;
-    if (strcmp(name, "get_global_size") == 0) return 1;
-    if (strcmp(name, "get_local_size") == 0) return 1;
+    else if (strcmp(name, "get_local_id") == 0) return 1;
+    else if (strcmp(name, "get_group_id") == 0) return 1;
+    else if (strcmp(name, "get_num_groups") == 0) return 1;
+    else if (strcmp(name, "get_work_dim") == 0) return 1;
+    else if (strcmp(name, "get_global_size") == 0) return 1;
+    else if (strcmp(name, "get_local_size") == 0) return 1;
     return 0;
 }
 
+// should only have one args
 SemanticRepresentation* ProcessPrimitiveFunc(char* name, SemanticRepresentation_list* arg)
 {
+    // TODO: Different kind of primitive function
+    unsigned int idx;
+    GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, arg->value_head->value, &idx);
     SemanticRepresentation* ret = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
     ret->lvalue = NULL;
     ret->next = NULL;
-    ret->type = CreateScalarTypeDesc(INT_TYPE, NULL);
-    ret->value = CreateZeroSemanticValue(INT_TYPE);
+    ret->type = CreateScalarTypeDesc(ULONG_TYPE, NULL);
+    ret->value = CreateZeroSemanticValue(VALUE_UNSIGNED_INTEGER);
+    if (strcmp(name, "get_global_id") == 0) ret->value->vector.globalIdx[idx] = 1;
+    else if (strcmp(name, "get_local_id") == 0) ret->value->vector.localIdx[idx] = 1;
+    else if (strcmp(name, "get_group_id") == 0) ret->value->vector.groupIdx[idx] = 1;
+    else if (strcmp(name, "get_num_groups") == 0) ;
+    else if (strcmp(name, "get_work_dim") == 0) ;
+    else if (strcmp(name, "get_global_size") == 0) ;
+    else if (strcmp(name, "get_local_size") == 0) ;
+
     return ret;
 }
 
@@ -1689,6 +1716,8 @@ void DeleteOperation(Operation* op)
         return;
     else
     {
+        if (op->value)
+            DeleteSemanticValue(op->value);
         if (op->structural_dep)
             free (op->structural_dep);
         if (op->issue_dep)
@@ -1737,10 +1766,94 @@ void ShowOPTrace(Operation_list* list)
                     iterDep = iterDep->next;
                 }
             }
+            if (iterOP->value)
+            {
+                // Treat as unsigned value
+                unsigned long constVal;
+                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, iterOP->value, &constVal);
+                printf("[Index]: %lu", constVal);
+                ShowNDRangeVector(iterOP->value->vector);
+            }
             printf("\n");
             iterOP = iterOP->next;
         }
     }
+}
+
+void ShowNDRangeVector(NDRangeVector vector)
+{
+    if (!CheckNDRangeVector(vector)) // zero value
+        return;
+    else
+    {
+        if (vector.globalIdx[0] != 0) printf(" + %ld x globalID(0)", vector.globalIdx[0]);
+        if (vector.globalIdx[1] != 0) printf(" + %ld x globalID(1)", vector.globalIdx[1]);
+        if (vector.globalIdx[2] != 0) printf(" + %ld x globalID(2)", vector.globalIdx[2]);
+        if (vector.localIdx[0] != 0) printf(" + %ld x localID(0)", vector.localIdx[0]);
+        if (vector.localIdx[1] != 0) printf(" + %ld x localID(1)", vector.localIdx[1]);
+        if (vector.localIdx[2] != 0) printf(" + %ld x localID(2)", vector.localIdx[2]);
+        if (vector.groupIdx[0] != 0) printf(" + %ld x groupID(0)", vector.groupIdx[0]);
+        if (vector.groupIdx[1] != 0) printf(" + %ld x groupID(1)", vector.groupIdx[1]);
+        if (vector.groupIdx[2] != 0) printf(" + %ld x groupID(2)", vector.groupIdx[2]);
+    }
+}
+
+/* Would set result_value->kind if undefined NDRange calculation is assigned */
+NDRangeVector CalculateNDRangeVector(NDRangeVector left_vector, NDRangeVector right_vector, unsigned long left_const, unsigned long right_const, EXPRESSION_KIND kind, SemanticValue* result_value)
+{
+    NDRangeVector ret = CreateZeroNDRangeVector();
+    switch (kind)
+    {
+        case ADDITION_OP:
+            ret.globalIdx[0] = left_vector.globalIdx[0] + right_vector.globalIdx[0];
+            ret.globalIdx[1] = left_vector.globalIdx[1] + right_vector.globalIdx[1];
+            ret.globalIdx[2] = left_vector.globalIdx[2] + right_vector.globalIdx[2];
+            ret.localIdx[0] = left_vector.localIdx[0] + right_vector.localIdx[0];
+            ret.localIdx[1] = left_vector.localIdx[1] + right_vector.localIdx[1];
+            ret.localIdx[2] = left_vector.localIdx[2] + right_vector.localIdx[2];
+            ret.groupIdx[0] = left_vector.groupIdx[0] + right_vector.groupIdx[0];
+            ret.groupIdx[1] = left_vector.groupIdx[1] + right_vector.groupIdx[1];
+            ret.groupIdx[2] = left_vector.groupIdx[2] + right_vector.groupIdx[2];
+            break;
+        case SUBTRACTION_OP:
+            ret.globalIdx[0] = left_vector.globalIdx[0] - right_vector.globalIdx[0];
+            ret.globalIdx[1] = left_vector.globalIdx[1] - right_vector.globalIdx[1];
+            ret.globalIdx[2] = left_vector.globalIdx[2] - right_vector.globalIdx[2];
+            ret.localIdx[0] = left_vector.localIdx[0] - right_vector.localIdx[0];
+            ret.localIdx[1] = left_vector.localIdx[1] - right_vector.localIdx[1];
+            ret.localIdx[2] = left_vector.localIdx[2] - right_vector.localIdx[2];
+            ret.groupIdx[0] = left_vector.groupIdx[0] - right_vector.groupIdx[0];
+            ret.groupIdx[1] = left_vector.groupIdx[1] - right_vector.groupIdx[1];
+            ret.groupIdx[2] = left_vector.groupIdx[2] - right_vector.groupIdx[2];
+            break;
+        case MULTIPLICATION_OP:
+            if (CheckNDRangeVector(left_vector) && CheckNDRangeVector(right_vector))
+            {
+                fprintf(stderr, "[Error] Unsupported multiplication of two non-zero NDRange vector in %s\n", __func__);
+                result_value->kind = VALUE_UNDEFINED;
+            }
+            else
+            {
+                ret.globalIdx[0] = left_vector.globalIdx[0] * right_const + left_const * right_vector.globalIdx[0];
+                ret.globalIdx[1] = left_vector.globalIdx[1] * right_const + left_const * right_vector.globalIdx[1];
+                ret.globalIdx[2] = left_vector.globalIdx[2] * right_const + left_const * right_vector.globalIdx[2];
+                ret.localIdx[0] = left_vector.localIdx[0] * right_const + left_const * right_vector.localIdx[0];
+                ret.localIdx[1] = left_vector.localIdx[1] * right_const + left_const * right_vector.localIdx[1];
+                ret.localIdx[2] = left_vector.localIdx[2] * right_const + left_const * right_vector.localIdx[2];
+                ret.groupIdx[0] = left_vector.groupIdx[0] * right_const + left_const * right_vector.groupIdx[0];
+                ret.groupIdx[1] = left_vector.groupIdx[1] * right_const + left_const * right_vector.groupIdx[1];
+                ret.groupIdx[2] = left_vector.groupIdx[2] * right_const + left_const * right_vector.groupIdx[2];
+            }
+            break;
+        default:
+            {
+                char name[100];
+                DebugExprKind(kind, name);
+                fprintf(stderr, "[Error] Unsupported expression kind \'%s\' in %s\n", name, __func__);
+            }
+            break;
+    }
+    return ret;
 }
 
 SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, SemanticRepresentation* left, SemanticRepresentation* right)
@@ -1809,6 +1922,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, ADDITION_OP, ret->value);
                     ret->value->constVal.long_val = (left_val + right_val);
                 }
                 else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
@@ -1816,6 +1930,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, ADDITION_OP, ret->value);
                     ret->value->constVal.ulong_val = (left_val + right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
@@ -1825,7 +1940,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.double_val = (left_val + right_val);
                 }
-                currOP = CreateOperation(large_type, ADDITION_OP);
+                currOP = CreateOperation(large_type, ADDITION_OP, NULL);
                 break;
             case SUBTRACTION_OP:
             case ASSIGNMENT_SUB:
@@ -1834,6 +1949,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, SUBTRACTION_OP, ret->value);
                     ret->value->constVal.long_val = (left_val - right_val);
                 }
                 else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
@@ -1841,6 +1957,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, SUBTRACTION_OP, ret->value);
                     ret->value->constVal.ulong_val = (left_val - right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
@@ -1850,7 +1967,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.double_val = (left_val - right_val);
                 }
-                currOP = CreateOperation(large_type, SUBTRACTION_OP);
+                currOP = CreateOperation(large_type, SUBTRACTION_OP, NULL);
                 break;
             case MULTIPLICATION_OP:
             case ASSIGNMENT_MUL:
@@ -1859,6 +1976,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
+                    ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, MULTIPLICATION_OP, ret->value);
                     ret->value->constVal.long_val = (left_val * right_val);
                 }
                 else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
@@ -1866,6 +1984,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
+                    ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, MULTIPLICATION_OP, ret->value);
                     ret->value->constVal.ulong_val = (left_val * right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
@@ -1875,7 +1994,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.double_val = (left_val * right_val);
                 }
-                currOP = CreateOperation(large_type, MULTIPLICATION_OP);
+                currOP = CreateOperation(large_type, MULTIPLICATION_OP, NULL);
                 break;
             case DIVISION_OP:
             case ASSIGNMENT_DIV:
@@ -1900,7 +2019,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.double_val = (left_val / right_val);
                 }
-                currOP = CreateOperation(large_type, DIVISION_OP);
+                currOP = CreateOperation(large_type, DIVISION_OP, NULL);
                 break;
             case MODULAR_OP:
             case ASSIGNMENT_MOD:
@@ -1922,7 +2041,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"%%\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(large_type, MODULAR_OP);
+                currOP = CreateOperation(large_type, MODULAR_OP, NULL);
                 break;
             case POST_INCREASE_OP:
                 {
@@ -1954,7 +2073,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             entry->value->constVal.double_val = (left_val + 1);
                             ret->value->constVal.double_val = left_val;
                         }
-                        currOP = CreateOperation(large_type, ADDITION_OP);
+                        currOP = CreateOperation(large_type, ADDITION_OP, NULL);
                         entry->value->lastOP = currOP;
                     }
                 }
@@ -1989,7 +2108,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             entry->value->constVal.double_val = (left_val - 1);
                             ret->value->constVal.double_val = left_val;
                         }
-                        currOP = CreateOperation(large_type, SUBTRACTION_OP);
+                        currOP = CreateOperation(large_type, SUBTRACTION_OP, NULL);
                         entry->value->lastOP = currOP;
                     }
                 }
@@ -2024,7 +2143,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             entry->value->constVal.double_val = (left_val + 1);
                             ret->value->constVal.double_val = (left_val + 1);
                         }
-                        currOP = CreateOperation(large_type, ADDITION_OP);
+                        currOP = CreateOperation(large_type, ADDITION_OP, NULL);
                         entry->value->lastOP = currOP;
                     }
                 }
@@ -2059,7 +2178,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             entry->value->constVal.double_val = (left_val - 1);
                             ret->value->constVal.double_val = (left_val - 1);
                         }
-                        currOP = CreateOperation(large_type, SUBTRACTION_OP);
+                        currOP = CreateOperation(large_type, SUBTRACTION_OP, NULL);
                         entry->value->lastOP = currOP;
                     }
                 }
@@ -2084,7 +2203,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"<<\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(large_type, SHIFT_LEFT_OP);
+                currOP = CreateOperation(large_type, SHIFT_LEFT_OP, NULL);
                 break;
             case SHIFT_RIGHT_OP:
             case ASSIGNMENT_RIGHT:
@@ -2106,7 +2225,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \">>\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(large_type, SHIFT_RIGHT_OP);
+                currOP = CreateOperation(large_type, SHIFT_RIGHT_OP, NULL);
                 break;
             case BITWISE_AND_OP:
             case ASSIGNMENT_AND:
@@ -2128,7 +2247,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"&\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(large_type, BITWISE_AND_OP);
+                currOP = CreateOperation(large_type, BITWISE_AND_OP, NULL);
                 break;
             case BITWISE_XOR_OP:
             case ASSIGNMENT_XOR:
@@ -2150,7 +2269,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"^\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(large_type, BITWISE_XOR_OP);
+                currOP = CreateOperation(large_type, BITWISE_XOR_OP, NULL);
                 break;
             case BITWISE_OR_OP:
             case ASSIGNMENT_OR:
@@ -2172,7 +2291,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"|\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(large_type, BITWISE_OR_OP);
+                currOP = CreateOperation(large_type, BITWISE_OR_OP, NULL);
                 break;
             case BITWISE_COMPLEMENT_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2191,7 +2310,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     fprintf(stderr, "[Error] Invalid operand type for operator \"~\" in %s\n", __func__);
                 }
-                currOP = CreateOperation(large_type, BITWISE_COMPLEMENT_OP);
+                currOP = CreateOperation(large_type, BITWISE_COMPLEMENT_OP, NULL);
                 break;
              case UNARY_PLUS_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2212,7 +2331,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     ret->value->constVal.double_val = (+left_val);
                 }
-                currOP = CreateOperation(large_type, UNARY_PLUS_OP);
+                currOP = CreateOperation(large_type, UNARY_PLUS_OP, NULL);
                 break;
              case UNARY_MINUS_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2233,7 +2352,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     ret->value->constVal.double_val = (-left_val);
                 }
-                currOP = CreateOperation(large_type, UNARY_MINUS_OP);
+                currOP = CreateOperation(large_type, UNARY_MINUS_OP, NULL);
                 break;
             case LESS_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2257,7 +2376,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val < right_val);
                 }
-                currOP = CreateOperation(large_type, LESS_OP);
+                currOP = CreateOperation(large_type, LESS_OP, NULL);
                 break;
             case LESS_EQUAL_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2281,7 +2400,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val <= right_val);
                 }
-                currOP = CreateOperation(large_type, LESS_EQUAL_OP);
+                currOP = CreateOperation(large_type, LESS_EQUAL_OP, NULL);
                 break;
             case GREATER_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2305,7 +2424,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val > right_val);
                 }
-                currOP = CreateOperation(large_type, GREATER_OP);
+                currOP = CreateOperation(large_type, GREATER_OP, NULL);
                 break;
             case GREATER_EQUAL_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2329,7 +2448,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val >= right_val);
                 }
-                currOP = CreateOperation(large_type, GREATER_EQUAL_OP);
+                currOP = CreateOperation(large_type, GREATER_EQUAL_OP, NULL);
                 break;
             case EQUAL_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2353,7 +2472,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val == right_val);
                 }
-                currOP = CreateOperation(large_type, EQUAL_OP);
+                currOP = CreateOperation(large_type, EQUAL_OP, NULL);
                 break;
             case NOT_EQUAL_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2377,7 +2496,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val != right_val);
                 }
-                currOP = CreateOperation(large_type, NOT_EQUAL_OP);
+                currOP = CreateOperation(large_type, NOT_EQUAL_OP, NULL);
                 break;
             case LOGICAL_AND_OP: // TODO lazy evaluation
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2401,7 +2520,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val && right_val);
                 }
-                currOP = CreateOperation(large_type, LOGICAL_AND_OP);
+                currOP = CreateOperation(large_type, LOGICAL_AND_OP, NULL);
                 break;
             case LOGICAL_OR_OP: // TODO lazy evaluation
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2425,7 +2544,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val || right_val);
                 }
-                currOP = CreateOperation(large_type, LOGICAL_OR_OP);
+                currOP = CreateOperation(large_type, LOGICAL_OR_OP, NULL);
                 break;
             case LOGICAL_COMPLEMENT_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -2446,7 +2565,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     ret->value->constVal.long_val = (!left_val);
                 }
-                currOP = CreateOperation(large_type, LOGICAL_COMPLEMENT_OP);
+                currOP = CreateOperation(large_type, LOGICAL_COMPLEMENT_OP, NULL);
                 break;
 
             default:

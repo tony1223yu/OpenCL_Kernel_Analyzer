@@ -554,6 +554,9 @@ void DebugExprKind(EXPRESSION_KIND kind, char* name)
         case ASSIGNMENT_OR:
 			sprintf(name, "ASSIGNMENT_OR");
 			break;
+        default:
+            sprintf(name, "NON_ARITHMETIC_OP");
+            break;
     }
 }
 

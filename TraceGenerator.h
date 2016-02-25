@@ -61,12 +61,14 @@ TypeDescriptor* DereferenceAndCreateTypeDesc(TypeDescriptor*);
 SEMANTIC_VALUE_TYPE TypeDescToSemanticValueType(TypeDescriptor*);
 void GetValueInSemanticValue(SEMANTIC_VALUE_TYPE, SemanticValue*, void*);
 SemanticValue* CreateEmptySemanticValue(void);
-NDRangeVector CreateEmptyNDRangeVector(void);
-int CheckEmptyNDRangeVector(NDRangeVector);
+NDRangeVector CreateZeroNDRangeVector(void);
+void ShowNDRangeVector(NDRangeVector);
+int CheckZeroNDRangeVector(NDRangeVector);
+NDRangeVector CalculateNDRangeVector(NDRangeVector, NDRangeVector, unsigned long, unsigned long, EXPRESSION_KIND, SemanticValue*);
 SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND, SemanticRepresentation*, SemanticRepresentation*);
 SymbolTableEntry* FindSymbolInSymTable(SymbolTable*, char*);
 SymbolTableEntry* FindMemberInSymTable(SymbolTableEntry*, char*);
-Operation* CreateOperation(TypeDescriptor*, EXPRESSION_KIND);
+Operation* CreateOperation(TypeDescriptor*, EXPRESSION_KIND, SemanticValue*);
 Operation_list* AppendOperationToList(Operation_list*, Operation*);
 void ShowOPTrace(Operation_list*);
 void GetOperationName(Operation*, char*);
@@ -169,20 +171,19 @@ struct Operation
     Dependency* data_dep_tail;
     Dependency* issue_dep;
 
+    // Only for memory access index
+    SemanticValue* value;
+
     Operation* next;
 };
 
+/* Does not support floating point for now */
+/* Operation can only be addition, subtraction, and multiplication */
 struct NDRangeVector
 {
-    unsigned long globalIdx0;
-    unsigned long globalIdx1;
-    unsigned long globalIdx2;
-    unsigned long groupIdx0;
-    unsigned long groupIdx1;
-    unsigned long groupIdx2;
-    unsigned long localIdx0;
-    unsigned long localIdx1;
-    unsigned long localIdx2;
+    long globalIdx[3];
+    long groupIdx[3];
+    long localIdx[3];
 };
 
 struct SemanticValue
