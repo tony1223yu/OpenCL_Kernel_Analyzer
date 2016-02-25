@@ -627,7 +627,7 @@ SEMANTIC_VALUE_TYPE TypeDescToSemanticValueType(TypeDescriptor* type)
                 return VALUE_UNSIGNED_INTEGER;
             else if (type->type & CONST_FLOAT_MASK)
                 return VALUE_FLOAT;
-            else
+            else // e.g. STRUCT_TYPE, ...
                 return VALUE_OTHER;
         }
     }
@@ -680,8 +680,10 @@ TypeDescriptor* ComputeAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* r
     }
     else
     {
+        /* Always cast to pointer type if there exists one */
         if ((left->array_desc_head != NULL) && (right->array_desc_head != NULL))
         {
+            // TODO check if pointer is exactly the same
             fprintf(stderr, "[Error] Both operand have Array/Pointer type in %s\n", __func__);
             return CreateScalarTypeDesc(NONE_TYPE, NULL);
         }
@@ -827,43 +829,6 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                         memcpy(&(result->value->constVal), &(node->direct_expr.constant->value), sizeof(result->value->constVal));
                         result->lvalue = NULL;
                         result->next = NULL;
-                    }
-                    break;
-                case EXPRESSION_SUBSCRIPT:
-                    {
-                        /* Memory access */
-                        if (right_value != NULL)
-                            fprintf(stderr, "[Error] right operand should not appear in memory access node in %s\n", __func__);
-
-                        Operation* madOP;
-                        Operation* memOP;
-                        StmtRepresentation* index = TraceExpressionStmt(node->direct_expr.subscript);
-                        result = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
-                        result->type = DereferenceAndCreateTypeDesc(left_value->type);
-                        result->value = CreateEmptySemanticValue();
-                        result->value->kind = VALUE_IRREGULAR;
-
-                        madOP = CreateOperation(DuplicateTypeDesc(left_value->type), MAD_OP, NULL); // for index calculation
-                        memOP = CreateOperation(result->type, MEMORY_OP, DuplicateSemanticValue(index->expression->value)); // TODO: calculate the actual address instead of index
-                        if ((madOP != NULL) && (memOP != NULL))
-                        {
-                            if (left_value && left_value->value)
-                                AddDependency(left_value->value->lastOP, madOP, DATA_DEPENDENCY);
-
-                            if (index && index->expression && index->expression->value)
-                                AddDependency(index->expression->value->lastOP, madOP, DATA_DEPENDENCY);
-
-                            AddDependency(lastIssueOP, madOP, ISSUE_DEPENDENCY);
-                            opTrace = AppendOperationToList(opTrace, madOP);
-
-                            AddDependency(madOP, memOP, DATA_DEPENDENCY);
-                            AddDependency(madOP, memOP, ISSUE_DEPENDENCY);
-                            opTrace = AppendOperationToList(opTrace, memOP);
-                            lastIssueOP = memOP;
-                            result->value->lastOP = memOP;
-                        }
-                        DeleteSemanticRepresentation(left_value);
-                        DeleteStmtRepresentation(index);
                     }
                     break;
                 case EXPRESSION_FUNCTION:
@@ -1577,7 +1542,9 @@ void GetOperationName(Operation* op, char* name)
             case DOUBLE16_TYPE:
                 strcat(name, "DOUBLE16_");
                 break;
-
+            default:
+                strcat(name, "NONE_TYPE_");
+                break;
         }
 
         switch (op->kind)
@@ -1771,7 +1738,7 @@ void ShowOPTrace(Operation_list* list)
                 // Treat as unsigned value
                 unsigned long constVal;
                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, iterOP->value, &constVal);
-                printf("[Index]: %lu", constVal);
+                printf("[Address]: %lu", constVal);
                 ShowNDRangeVector(iterOP->value->vector);
             }
             printf("\n");
@@ -1856,6 +1823,255 @@ NDRangeVector CalculateNDRangeVector(NDRangeVector left_vector, NDRangeVector ri
     return ret;
 }
 
+/* Return value is the size of given type */
+SemanticRepresentation* GetSemanticRepresentationFromTypeDesc(TypeDescriptor* type)
+{
+    if (!type)
+    {
+        fprintf(stderr, "[Error] Given type descriptor is NULL in %s\n", __func__);
+        return NULL;
+    }
+    else
+    {
+        SemanticRepresentation* ret = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
+        ret->type = CreateScalarTypeDesc(ULONG_TYPE, NULL);
+        ret->value = CreateZeroSemanticValue(VALUE_UNSIGNED_INTEGER);
+        ret->lvalue = NULL;
+
+        if (type->array_desc_head != NULL)
+        {
+            if (type->array_desc_head->desc_kind == ARRAY_DESC_ARRAY)
+            {
+                TypeDescriptor* element_type = DereferenceAndCreateTypeDesc(type);
+                SemanticRepresentation* element = GetSemanticRepresentationFromTypeDesc(element_type);
+
+                // since we know that element have ULONG_TYPE
+                ret->value->constVal.ulong_val = type->array_desc_head->size * element->value->constVal.ulong_val;
+
+                DeleteTypeDesc(element_type);
+                DeleteSemanticRepresentation(element);
+            }
+            else // pointer
+            {
+                ret->value->constVal.ulong_val = 8;
+            }
+        }
+        else if (type->kind == TYPE_WITH_PARAM)
+        {
+            ret->value->constVal.ulong_val = 1;
+        }
+        else if (type->type == STRUCT_TYPE)
+        {
+            // Assume that padding in struct is always enabled
+            StructDeclaration_node* iterStruct = program->struct_head;
+            unsigned long size = 0;
+            while (iterStruct != NULL)
+            {
+                if (strcmp(type->struct_name, iterStruct->struct_name) == 0)
+                    break;
+                iterStruct = iterStruct->next;
+            }
+            if (iterStruct == NULL)
+            {
+                fprintf(stderr, "[Error] undefined struct name in %s\n", __func__);
+                return NULL;
+            }
+            else
+            {
+                Declaration_node* iterMember = iterStruct->member_head;
+                while (iterMember != NULL)
+                {
+                    Declaration_desc_node* iterDesc = iterMember->declaration_desc_head;
+                    while (iterDesc != NULL)
+                    {
+                        TypeDescriptor* mix_type = MixAndCreateTypeDesc(iterMember->declaration_type, iterDesc->identifier_type);
+                        SemanticRepresentation* member_size = GetSemanticRepresentationFromTypeDesc(mix_type);
+
+                        // TODO padding of struct
+                        size += member_size->value->constVal.ulong_val;
+                        DeleteTypeDesc(mix_type);
+                        DeleteSemanticRepresentation(member_size);
+                    }
+                }
+            }
+        }
+        else
+        {
+            switch (type->type)
+            {
+                case NONE_TYPE:
+                    ret->value->constVal.ulong_val = 0;
+                    break;
+                case BOOL_TYPE:
+                    ret->value->constVal.ulong_val = 1;
+                    break;
+                case HALF_TYPE:
+                    ret->value->constVal.ulong_val = 2;
+                    break;
+                case VOID_TYPE:
+                    ret->value->constVal.ulong_val = 1;
+                    break;
+                case CHAR_TYPE:
+                    ret->value->constVal.ulong_val = 1;
+                    break;
+                case CHAR2_TYPE:
+                    ret->value->constVal.ulong_val = 2;
+                    break;
+                case CHAR4_TYPE:
+                    ret->value->constVal.ulong_val = 4;
+                    break;
+                case CHAR8_TYPE:
+                    ret->value->constVal.ulong_val = 8;
+                    break;
+                case CHAR16_TYPE:
+                    ret->value->constVal.ulong_val = 16;
+                    break;
+                case UCHAR_TYPE:
+                    ret->value->constVal.ulong_val = 1;
+                    break;
+                case UCHAR2_TYPE:
+                    ret->value->constVal.ulong_val = 2;
+                    break;
+                case UCHAR4_TYPE:
+                    ret->value->constVal.ulong_val = 4;
+                    break;
+                case UCHAR8_TYPE:
+                    ret->value->constVal.ulong_val = 8;
+                    break;
+                case UCHAR16_TYPE:
+                    ret->value->constVal.ulong_val = 16;
+                    break;
+                case SHORT_TYPE:
+                    ret->value->constVal.ulong_val = 2;
+                    break;
+                case SHORT2_TYPE:
+                    ret->value->constVal.ulong_val = 4;
+                    break;
+                case SHORT4_TYPE:
+                    ret->value->constVal.ulong_val = 8;
+                    break;
+                case SHORT8_TYPE:
+                    ret->value->constVal.ulong_val = 16;
+                    break;
+                case SHORT16_TYPE:
+                    ret->value->constVal.ulong_val = 32;
+                    break;
+                case USHORT_TYPE:
+                    ret->value->constVal.ulong_val = 2;
+                    break;
+                case USHORT2_TYPE:
+                    ret->value->constVal.ulong_val = 4;
+                    break;
+                case USHORT4_TYPE:
+                    ret->value->constVal.ulong_val = 8;
+                    break;
+                case USHORT8_TYPE:
+                    ret->value->constVal.ulong_val = 16;
+                    break;
+                case USHORT16_TYPE:
+                    ret->value->constVal.ulong_val = 32;
+                    break;
+                case INT_TYPE:
+                    ret->value->constVal.ulong_val = 4;
+                    break;
+                case INT2_TYPE:
+                    ret->value->constVal.ulong_val = 8;
+                    break;
+                case INT4_TYPE:
+                    ret->value->constVal.ulong_val = 16;
+                    break;
+                case INT8_TYPE:
+                    ret->value->constVal.ulong_val = 32;
+                    break;
+                case INT16_TYPE:
+                    ret->value->constVal.ulong_val = 64;
+                    break;
+                case UINT_TYPE:
+                    ret->value->constVal.ulong_val = 4;
+                    break;
+                case UINT2_TYPE:
+                    ret->value->constVal.ulong_val = 8;
+                    break;
+                case UINT4_TYPE:
+                    ret->value->constVal.ulong_val = 16;
+                    break;
+                case UINT8_TYPE:
+                    ret->value->constVal.ulong_val = 32;
+                    break;
+                case UINT16_TYPE:
+                    ret->value->constVal.ulong_val = 64;
+                    break;
+                case LONG_TYPE:
+                    ret->value->constVal.ulong_val = 8;
+                    break;
+                case LONG2_TYPE:
+                    ret->value->constVal.ulong_val = 16;
+                    break;
+                case LONG4_TYPE:
+                    ret->value->constVal.ulong_val = 32;
+                    break;
+                case LONG8_TYPE:
+                    ret->value->constVal.ulong_val = 64;
+                    break;
+                case LONG16_TYPE:
+                    ret->value->constVal.ulong_val = 128;
+                    break;
+                case ULONG_TYPE:
+                    ret->value->constVal.ulong_val = 8;
+                    break;
+                case ULONG2_TYPE:
+                    ret->value->constVal.ulong_val = 16;
+                    break;
+                case ULONG4_TYPE:
+                    ret->value->constVal.ulong_val = 32;
+                    break;
+                case ULONG8_TYPE:
+                    ret->value->constVal.ulong_val = 64;
+                    break;
+                case ULONG16_TYPE:
+                    ret->value->constVal.ulong_val = 128;
+                    break;
+                case FLOAT_TYPE:
+                    ret->value->constVal.ulong_val = 4;
+                    break;
+                case FLOAT2_TYPE:
+                    ret->value->constVal.ulong_val = 8;
+                    break;
+                case FLOAT4_TYPE:
+                    ret->value->constVal.ulong_val = 16;
+                    break;
+                case FLOAT8_TYPE:
+                    ret->value->constVal.ulong_val = 32;
+                    break;
+                case FLOAT16_TYPE:
+                    ret->value->constVal.ulong_val = 64;
+                    break;
+                case DOUBLE_TYPE:
+                    ret->value->constVal.ulong_val = 8;
+                    break;
+                case DOUBLE2_TYPE:
+                    ret->value->constVal.ulong_val = 16;
+                    break;
+                case DOUBLE4_TYPE:
+                    ret->value->constVal.ulong_val = 32;
+                    break;
+                case DOUBLE8_TYPE:
+                    ret->value->constVal.ulong_val = 64;
+                    break;
+                case DOUBLE16_TYPE:
+                    ret->value->constVal.ulong_val = 128;
+                    break;
+                default:
+                    fprintf(stderr, "[Error] Unsupported type in %s\n", __func__);
+                    ret->value->constVal.ulong_val = 0;
+                    break;
+            }
+        }
+
+        return ret;
+    }
+}
+
 SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, SemanticRepresentation* left, SemanticRepresentation* right)
 {
     if ((!left) && (!right))
@@ -1877,6 +2093,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
         ret->next = NULL;
         ret->value = CreateEmptySemanticValue();
 
+        /* Determine the bigger type */
         if (left && right)
             large_type = ComputeAndCreateTypeDesc(left->type, right->type);
         else if (left)
@@ -1890,31 +2107,58 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
             /* Logical operations would always return int */
             ret->type = CreateScalarTypeDesc(INT_TYPE, NULL);
         }
-        else
+        else if (kind == MEMORY_OP)
         {
-            /* Arithmetic operations would always return bigger type */
+            ret->type = DereferenceAndCreateTypeDesc(left->type);
+        }
+        else /* Arithmetic operations would always return bigger type */
+        {
             ret->type = DuplicateTypeDesc(large_type);
         }
+
         ret->value->type = TypeDescToSemanticValueType(ret->type);
         large_value_type = TypeDescToSemanticValueType(large_type);
 
+        /* Check for undefined or irregular value */
         if ((left && left->value->kind == VALUE_UNDEFINED) || (right && right->value->kind == VALUE_UNDEFINED))
             ret->value->kind = VALUE_UNDEFINED;
         else if ((left && left->value->kind == VALUE_IRREGULAR) || (right && right->value->kind == VALUE_IRREGULAR))
             ret->value->kind = VALUE_IRREGULAR;
-        else if (ret->value->type == VALUE_POINTER)
+        else if ((ret->value->type == VALUE_POINTER) || (large_value_type == VALUE_POINTER))
         {
-            fprintf(stderr, "[Error] Does not support pointer arithmetic for now in %s\n", __func__);
-            ret->value->kind = VALUE_UNDEFINED;
+            if (kind != MEMORY_OP && kind != SUBSCRIPT_OP && kind != ADDITION_OP && kind != ASSIGNMENT_ADD && kind != SUBTRACTION_OP && kind != ASSIGNMENT_SUB
+                    && kind != POST_INCREASE_OP && kind != POST_DECREASE_OP && kind != PRE_INCREASE_OP && kind != POST_INCREASE_OP)
+            {
+                fprintf(stderr, "[Error] Invalid type of pointer arithmetic in %s\n", __func__);
+                ret->value->kind = VALUE_UNDEFINED;
+            }
         }
-        else if (ret->value->type == VALUE_OTHER)
+        else if ((ret->value->type == VALUE_OTHER) || (large_value_type == VALUE_POINTER))
         {
             fprintf(stderr, "[Error] Invalid type in %s\n", __func__);
             ret->value->kind = VALUE_UNDEFINED;
         }
 
+        /* Do the calculation */
         switch (kind)
         {
+            case MEMORY_OP:
+                ret->value->kind = VALUE_IRREGULAR;
+                currOP = CreateOperation(ret->type, MEMORY_OP, DuplicateSemanticValue(left->value));
+                break;
+            case SUBSCRIPT_OP: // calculate ACTUAL address and use MEMORY_OP
+                {
+                    // TODO translate to MAD operation
+                    SemanticRepresentation *add;
+
+                    currOP = NULL;
+                    add = CalculateSemanticRepresentation(ADDITION_OP, left, right); // pointer addition
+                    DeleteSemanticRepresentation(ret);
+                    ret = CalculateSemanticRepresentation(MEMORY_OP, add, NULL);
+
+                    DeleteSemanticRepresentation(add);
+                }
+                break;
             case ADDITION_OP:
             case ASSIGNMENT_ADD:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
@@ -1925,13 +2169,53 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, ADDITION_OP, ret->value);
                     ret->value->constVal.long_val = (left_val + right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, ADDITION_OP, ret->value);
                     ret->value->constVal.ulong_val = (left_val + right_val);
+                }
+                else if (large_value_type == VALUE_POINTER)
+                {
+                    SemanticRepresentation* mul;
+                    SemanticRepresentation* typeSize;
+                    TypeDescriptor* element_type;
+                    unsigned long mul_val;
+                    unsigned long pointer_val;
+                    if (TypeDescToSemanticValueType(left->type) == VALUE_POINTER)
+                    {
+                        element_type = DereferenceAndCreateTypeDesc(left->type);
+                        typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
+                        mul = CalculateSemanticRepresentation(MULTIPLICATION_OP, typeSize, right);
+                        GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, mul->value, &mul_val);
+                        GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
+                        ret->value->vector = CalculateNDRangeVector(left->value->vector, mul->value->vector, pointer_val, mul_val, ADDITION_OP, ret->value);
+                        ret->value->constVal.ulong_val = pointer_val + mul_val;
+
+                        // establish the RAW dependency of mul
+                        right->value->lastOP = mul->value->lastOP;
+                    }
+                    else if (TypeDescToSemanticValueType(right->type) == VALUE_POINTER)
+                    {
+                        element_type = DereferenceAndCreateTypeDesc(right->type);
+                        typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
+                        mul = CalculateSemanticRepresentation(MULTIPLICATION_OP, left, typeSize);
+                        GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, mul->value, &mul_val);
+                        GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &pointer_val);
+                        ret->value->vector = CalculateNDRangeVector(mul->value->vector, right->value->vector, mul_val, pointer_val, ADDITION_OP, ret->value);
+                        ret->value->constVal.ulong_val = mul_val + pointer_val;
+
+                        // establish the RAW dependency of mul
+                        left->value->lastOP = mul->value->lastOP;
+                    }
+                    else
+                        fprintf(stderr, "[Error] No pointer type operand found in %s\n", __func__);
+
+                    DeleteTypeDesc(element_type);
+                    DeleteSemanticRepresentation(typeSize);
+                    DeleteSemanticRepresentation(mul);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
@@ -1952,13 +2236,53 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, SUBTRACTION_OP, ret->value);
                     ret->value->constVal.long_val = (left_val - right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, SUBTRACTION_OP, ret->value);
                     ret->value->constVal.ulong_val = (left_val - right_val);
+                }
+                else if (large_value_type == VALUE_POINTER)
+                {
+                    SemanticRepresentation* mul;
+                    SemanticRepresentation* typeSize;
+                    TypeDescriptor* element_type;
+                    unsigned long mul_val;
+                    unsigned long pointer_val;
+                    if (TypeDescToSemanticValueType(left->type) == VALUE_POINTER)
+                    {
+                        element_type = DereferenceAndCreateTypeDesc(left->type);
+                        typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
+                        mul = CalculateSemanticRepresentation(MULTIPLICATION_OP, right, typeSize);
+                        GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, mul->value, &mul_val);
+                        GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
+                        ret->value->vector = CalculateNDRangeVector(left->value->vector, mul->value->vector, pointer_val, mul_val, ADDITION_OP, ret->value);
+                        ret->value->constVal.ulong_val = pointer_val - mul_val;
+
+                        // establish the RAW dependency of mul
+                        right->value->lastOP = mul->value->lastOP;
+                    }
+                    else if (TypeDescToSemanticValueType(right->type) == VALUE_POINTER)
+                    {
+                        element_type = DereferenceAndCreateTypeDesc(right->type);
+                        typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
+                        mul = CalculateSemanticRepresentation(MULTIPLICATION_OP, left, typeSize);
+                        GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, mul->value, &mul_val);
+                        GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &pointer_val);
+                        ret->value->vector = CalculateNDRangeVector(mul->value->vector, right->value->vector, mul_val, pointer_val, ADDITION_OP, ret->value);
+                        ret->value->constVal.ulong_val = mul_val - pointer_val;
+
+                        // establish the RAW dependency of mul
+                        left->value->lastOP = mul->value->lastOP;
+                    }
+                    else
+                        fprintf(stderr, "[Error] No pointer type operand found in %s\n", __func__);
+
+                    DeleteTypeDesc(element_type);
+                    DeleteSemanticRepresentation(typeSize);
+                    DeleteSemanticRepresentation(mul);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
@@ -1979,7 +2303,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, MULTIPLICATION_OP, ret->value);
                     ret->value->constVal.long_val = (left_val * right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2005,7 +2329,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val / right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2030,7 +2354,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val % right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2046,6 +2370,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
             case POST_INCREASE_OP:
                 {
                     SymbolTableEntry* entry = left->lvalue;
+                    ret->value->vector = left->value->vector;
                     if (entry == NULL)
                     {
                         fprintf(stderr, "[Error] Invalid lvalue in post increase operator in %s\n", __func__);
@@ -2059,12 +2384,33 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             entry->value->constVal.long_val = (left_val + 1);
                             ret->value->constVal.long_val = left_val;
                         }
-                        else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                        else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.ulong_val = (left_val + 1);
                             ret->value->constVal.ulong_val = left_val;
+                        }
+                        else if (large_value_type == VALUE_POINTER)
+                        {
+                            SemanticRepresentation* typeSize;
+                            TypeDescriptor* element_type;
+                            unsigned long type_val;
+                            unsigned long pointer_val;
+                            if (TypeDescToSemanticValueType(left->type) == VALUE_POINTER)
+                            {
+                                element_type = DereferenceAndCreateTypeDesc(left->type);
+                                typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
+                                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, typeSize->value, &type_val);
+                                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
+                                entry->value->constVal.ulong_val = pointer_val + type_val;
+                                ret->value->constVal.ulong_val = pointer_val;
+                            }
+                            else
+                                fprintf(stderr, "[Error] No pointer type operand found in %s\n", __func__);
+
+                            DeleteTypeDesc(element_type);
+                            DeleteSemanticRepresentation(typeSize);
                         }
                         else if (large_value_type == VALUE_FLOAT)
                         {
@@ -2081,6 +2427,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
             case POST_DECREASE_OP:
                 {
                     SymbolTableEntry* entry = left->lvalue;
+                    ret->value->vector = left->value->vector;
                     if (entry == NULL)
                     {
                         fprintf(stderr, "[Error] Invalid lvalue in post increase operator in %s\n", __func__);
@@ -2094,12 +2441,33 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             entry->value->constVal.long_val = (left_val - 1);
                             ret->value->constVal.long_val = left_val;
                         }
-                        else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                        else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.ulong_val = (left_val - 1);
                             ret->value->constVal.ulong_val = left_val;
+                        }
+                        else if (large_value_type == VALUE_POINTER)
+                        {
+                            SemanticRepresentation* typeSize;
+                            TypeDescriptor* element_type;
+                            unsigned long type_val;
+                            unsigned long pointer_val;
+                            if (TypeDescToSemanticValueType(left->type) == VALUE_POINTER)
+                            {
+                                element_type = DereferenceAndCreateTypeDesc(left->type);
+                                typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
+                                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, typeSize->value, &type_val);
+                                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
+                                entry->value->constVal.ulong_val = pointer_val - type_val;
+                                ret->value->constVal.ulong_val = pointer_val;
+                            }
+                            else
+                                fprintf(stderr, "[Error] No pointer type operand found in %s\n", __func__);
+
+                            DeleteTypeDesc(element_type);
+                            DeleteSemanticRepresentation(typeSize);
                         }
                         else if (large_value_type == VALUE_FLOAT)
                         {
@@ -2116,6 +2484,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
             case PRE_INCREASE_OP:
                 {
                     SymbolTableEntry* entry = left->lvalue;
+                    ret->value->vector = left->value->vector;
                     if (entry == NULL)
                     {
                         fprintf(stderr, "[Error] Invalid lvalue in post increase operator in %s\n", __func__);
@@ -2129,12 +2498,33 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             entry->value->constVal.long_val = (left_val + 1);
                             ret->value->constVal.long_val = (left_val + 1);
                         }
-                        else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                        else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.ulong_val = (left_val + 1);
                             ret->value->constVal.ulong_val = (left_val + 1);
+                        }
+                        else if (large_value_type == VALUE_POINTER)
+                        {
+                            SemanticRepresentation* typeSize;
+                            TypeDescriptor* element_type;
+                            unsigned long type_val;
+                            unsigned long pointer_val;
+                            if (TypeDescToSemanticValueType(left->type) == VALUE_POINTER)
+                            {
+                                element_type = DereferenceAndCreateTypeDesc(left->type);
+                                typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
+                                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, typeSize->value, &type_val);
+                                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
+                                entry->value->constVal.ulong_val = pointer_val + type_val;
+                                ret->value->constVal.ulong_val = pointer_val + type_val;
+                            }
+                            else
+                                fprintf(stderr, "[Error] No pointer type operand found in %s\n", __func__);
+
+                            DeleteTypeDesc(element_type);
+                            DeleteSemanticRepresentation(typeSize);
                         }
                         else if (large_value_type == VALUE_FLOAT)
                         {
@@ -2151,6 +2541,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
             case PRE_DECREASE_OP:
                 {
                     SymbolTableEntry* entry = left->lvalue;
+                    ret->value->vector = left->value->vector;
                     if (entry == NULL)
                     {
                         fprintf(stderr, "[Error] Invalid lvalue in post increase operator in %s\n", __func__);
@@ -2164,12 +2555,33 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                             entry->value->constVal.long_val = (left_val - 1);
                             ret->value->constVal.long_val = (left_val - 1);
                         }
-                        else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                        else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                             entry->value->constVal.ulong_val = (left_val - 1);
                             ret->value->constVal.ulong_val = (left_val - 1);
+                        }
+                        else if (large_value_type == VALUE_POINTER)
+                        {
+                            SemanticRepresentation* typeSize;
+                            TypeDescriptor* element_type;
+                            unsigned long type_val;
+                            unsigned long pointer_val;
+                            if (TypeDescToSemanticValueType(left->type) == VALUE_POINTER)
+                            {
+                                element_type = DereferenceAndCreateTypeDesc(left->type);
+                                typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
+                                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, typeSize->value, &type_val);
+                                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
+                                entry->value->constVal.ulong_val = pointer_val - type_val;
+                                ret->value->constVal.ulong_val = pointer_val - type_val;
+                            }
+                            else
+                                fprintf(stderr, "[Error] No pointer type operand found in %s\n", __func__);
+
+                            DeleteTypeDesc(element_type);
+                            DeleteSemanticRepresentation(typeSize);
                         }
                         else if (large_value_type == VALUE_FLOAT)
                         {
@@ -2192,7 +2604,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val << right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2214,7 +2626,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val >> right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2236,7 +2648,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val & right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2258,7 +2670,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val ^ right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2280,7 +2692,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val | right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2300,7 +2712,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     ret->value->constVal.long_val = (~left_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2319,7 +2731,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     ret->value->constVal.long_val = (+left_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2340,7 +2752,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     ret->value->constVal.long_val = (-left_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2362,7 +2774,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val < right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2386,7 +2798,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val <= right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2410,7 +2822,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val > right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2434,7 +2846,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val >= right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2458,7 +2870,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val == right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2482,7 +2894,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val != right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2506,7 +2918,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val && right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2530,7 +2942,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->constVal.long_val = (left_val || right_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2553,7 +2965,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     ret->value->constVal.long_val = (!left_val);
                 }
-                else if ((large_value_type == VALUE_UNSIGNED_INTEGER) || (large_value_type == VALUE_POINTER))
+                else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
@@ -2575,7 +2987,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
         DeleteTypeDesc(large_type);
         large_type = NULL;
 
-        // TODO dependency
+        // TODO structural dependency
         if (currOP != NULL)
         {
             if (left && left->value)
@@ -2588,7 +3000,6 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
             lastIssueOP = currOP;
 
             opTrace = AppendOperationToList(opTrace, currOP);
-
             ret->value->lastOP = currOP;
         }
         return ret;

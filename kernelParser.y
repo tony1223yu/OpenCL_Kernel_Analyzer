@@ -77,9 +77,6 @@ Expression_node* CreateDirectExprNode(void* ptr, Expression_node* left, Expressi
         case EXPRESSION_CONSTANT:
             ret->direct_expr.constant = (Constant_node*)(ptr);
             break;
-        case EXPRESSION_SUBSCRIPT:
-            ret->direct_expr.subscript = (ExpressionStatement*)(ptr);
-            break;
         case EXPRESSION_FUNCTION:
             ret->direct_expr.function = (FunctionInvocation_node*)(ptr);
             break;
@@ -1473,9 +1470,6 @@ void DeleteExprNode(Expression_node* node)
             case EXPRESSION_CONSTANT:
                 DeleteConstantNode(node->direct_expr.constant);
                 break;
-            case EXPRESSION_SUBSCRIPT:
-                DeleteExprStmt(node->direct_expr.subscript);
-                break;
             case EXPRESSION_FUNCTION:
                 DeleteFuncInvocationNode(node->direct_expr.function);
                 break;
@@ -1650,7 +1644,7 @@ primary_expression
 /* function call here */
 postfix_expression
 	: primary_expression {$$ = $1;}
-	| postfix_expression '[' expression ']' {$$ = CreateDirectExprNode($3, $1, NULL, EXPRESSION_SUBSCRIPT);}
+	| postfix_expression '[' expression ']' {$$ = CreateNormalExprNode(SUBSCRIPT_OP, $1, CreateDirectExprNode($3, NULL, NULL, EXPRESSION_EXPRSTMT));}
 	| postfix_expression '(' ')'
     {
         /* Assume that only IDENTIFIER can be used to invoke a function */

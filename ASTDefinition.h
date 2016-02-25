@@ -146,7 +146,7 @@ enum OPENCL_DATA_TYPE
     DOUBLE_TYPE,
     CONST_OTHER_MASK = 0x8000,
     NONE_TYPE,
-    POINTER_TYPE,
+    POINTER_TYPE, // This should only appear in Operation->type
     STRUCT_TYPE,
     UNION_TYPE,
     VOID_TYPE,
@@ -195,6 +195,7 @@ enum OPENCL_DATA_TYPE
 enum EXPRESSION_KIND
 {
     MEMORY_OP = 0x0000,
+    SUBSCRIPT_OP,
 
     ARITHMETIC_OP_MASK = 0x1000,
     NONE_OP,
@@ -231,7 +232,6 @@ enum EXPRESSION_KIND
     EXPRESSION_MASK = 0x4000,
     EXPRESSION_IDENTIFIER,
     EXPRESSION_CONSTANT,
-    EXPRESSION_SUBSCRIPT,
     EXPRESSION_FUNCTION,
     EXPRESSION_MEMBER,
     EXPRESSION_TYPECAST,
@@ -480,7 +480,6 @@ struct Expression_node
     union direct_expr
     {
         char* identifier;
-        ExpressionStatement* subscript;
         FunctionInvocation_node* function;
         Constant_node* constant;
         char* member;

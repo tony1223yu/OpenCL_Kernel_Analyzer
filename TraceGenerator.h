@@ -66,6 +66,7 @@ void ShowNDRangeVector(NDRangeVector);
 int CheckZeroNDRangeVector(NDRangeVector);
 NDRangeVector CalculateNDRangeVector(NDRangeVector, NDRangeVector, unsigned long, unsigned long, EXPRESSION_KIND, SemanticValue*);
 SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND, SemanticRepresentation*, SemanticRepresentation*);
+SemanticRepresentation* GetSemanticRepresentationFromTypeDesc(TypeDescriptor*);
 SymbolTableEntry* FindSymbolInSymTable(SymbolTable*, char*);
 SymbolTableEntry* FindMemberInSymTable(SymbolTableEntry*, char*);
 Operation* CreateOperation(TypeDescriptor*, EXPRESSION_KIND, SemanticValue*);
@@ -76,6 +77,7 @@ void AddDependency(Operation*, Operation*, DEPENDENCY_KIND);
 Dependency* CreateDependency(Operation*, unsigned long);
 int CheckPrimitiveFunc(char*);
 SemanticRepresentation* ProcessPrimitiveFunc(char*, SemanticRepresentation_list*);
+SemanticRepresentation* GetSemanticRepresentationFromTypeDesc(TypeDescriptor*);
 
 enum SEMANTIC_VALUE_KIND
 {

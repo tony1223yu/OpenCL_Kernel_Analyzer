@@ -354,11 +354,6 @@ void DebugExprNode(Expression_node* node, int align)
                 case EXPRESSION_CONSTANT:
                     DebugConstantNode(node->direct_expr.constant, align);
                     break;
-                case EXPRESSION_SUBSCRIPT:
-                    DebugAlignment(align);
-                    printf("[Subscript]\n");
-                    DebugExprStmt(node->direct_expr.subscript, align+1);
-                    break;
                 case EXPRESSION_FUNCTION:
                     DebugAlignment(align);
                     printf("[FUNCTION_CALL]\n");
@@ -443,6 +438,12 @@ void DebugExprKind(EXPRESSION_KIND kind, char* name)
         case NONE_OP:
 			sprintf(name, "NONE_OP");
 			break;
+        case MEMORY_OP:
+            sprintf(name, "MEMORY_OP");
+            break;
+        case SUBSCRIPT_OP:
+            sprintf(name, "SUBSCRIPT_OP");
+            break;
         case ADDITION_OP:
 			sprintf(name, "ADDITION_OP");
 			break;
