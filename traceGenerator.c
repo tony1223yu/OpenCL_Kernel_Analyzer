@@ -856,6 +856,7 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
 
                             AddDependency(madOP, memOP, DATA_DEPENDENCY);
                             AddDependency(madOP, memOP, ISSUE_DEPENDENCY);
+                            opTrace = AppendOperationToList(opTrace, memOP);
                             lastIssueOP = memOP;
                             result->value->lastOP = memOP;
                         }
