@@ -25,6 +25,9 @@ Operation* lastIssueOP;
 Operation_list* opTrace;
 unsigned long g_operation_id;
 
+void DeleteOperation(Operation*);
+void DeleteOPTrace(Operation_list*);
+void DeleteSymbolTable(SymbolTable*);
 void showOPTrace(Operation_list*);
 SymbolTable* CreateSymTable();
 void CreateSymbolTableLevel(SymbolTable*);
@@ -59,6 +62,7 @@ SEMANTIC_VALUE_TYPE TypeDescToSemanticValueType(TypeDescriptor*);
 void GetValueInSemanticValue(SEMANTIC_VALUE_TYPE, SemanticValue*, void*);
 SemanticValue* CreateEmptySemanticValue(void);
 NDRangeVector CreateEmptyNDRangeVector(void);
+int CheckEmptyNDRangeVector(NDRangeVector);
 SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND, SemanticRepresentation*, SemanticRepresentation*);
 SymbolTableEntry* FindSymbolInSymTable(SymbolTable*, char*);
 SymbolTableEntry* FindMemberInSymTable(SymbolTableEntry*, char*);
@@ -68,6 +72,8 @@ void ShowOPTrace(Operation_list*);
 void GetOperationName(Operation*, char*);
 void AddDependency(Operation*, Operation*, DEPENDENCY_KIND);
 Dependency* CreateDependency(Operation*, unsigned long);
+int CheckPrimitiveFunc(char*);
+SemanticRepresentation* ProcessPrimitiveFunc(char*, SemanticRepresentation_list*);
 
 enum SEMANTIC_VALUE_KIND
 {

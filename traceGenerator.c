@@ -546,6 +546,17 @@ void DeleteSemanticRepresentation(SemanticRepresentation* value)
     }
 }
 
+/* return 1 if empty, 0 otherwise */
+int CheckEmptyNDRangeVector(NDRangeVector vector)
+{
+    unsigned long result;
+    result = vector.globalIdx0 | vector.globalIdx1 | vector.globalIdx2
+        | vector.groupIdx0 | vector.groupIdx1 | vector.groupIdx2
+        | vector.localIdx0 | vector.localIdx1 | vector.localIdx2;
+
+    return (result == 0) ? 1 : 0;
+}
+
 NDRangeVector CreateEmptyNDRangeVector()
 {
     NDRangeVector ret;
@@ -814,27 +825,31 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                         if (right_value != NULL)
                             fprintf(stderr, "[Error] right operand should not appear in memory access node in %s\n", __func__);
 
-                        Operation* currOP;
+                        Operation* madOP;
+                        Operation* memOP;
                         StmtRepresentation* index = TraceExpressionStmt(node->direct_expr.subscript);
                         result = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
                         result->type = DereferenceAndCreateTypeDesc(left_value->type);
                         result->value = CreateEmptySemanticValue();
                         result->value->kind = VALUE_IRREGULAR;
 
-                        currOP = CreateOperation(result->type, MEMORY_OP);
-                        if (currOP != NULL)
+                        madOP = CreateOperation(DuplicateTypeDesc(left_value->type), MAD_OP); // for index calculation
+                        memOP = CreateOperation(result->type, MEMORY_OP);
+                        if ((madOP != NULL) && (memOP != NULL))
                         {
                             if (left_value && left_value->value)
-                                AddDependency(left_value->value->lastOP, currOP, DATA_DEPENDENCY);
+                                AddDependency(left_value->value->lastOP, madOP, DATA_DEPENDENCY);
 
                             if (index && index->expression && index->expression->value)
-                                AddDependency(index->expression->value->lastOP, currOP, DATA_DEPENDENCY);
+                                AddDependency(index->expression->value->lastOP, madOP, DATA_DEPENDENCY);
 
-                            AddDependency(lastIssueOP, currOP, ISSUE_DEPENDENCY);
-                            lastIssueOP = currOP;
+                            AddDependency(lastIssueOP, madOP, ISSUE_DEPENDENCY);
+                            opTrace = AppendOperationToList(opTrace, madOP);
 
-                            opTrace = AppendOperationToList(opTrace, currOP);
-                            result->value->lastOP = currOP;
+                            AddDependency(madOP, memOP, DATA_DEPENDENCY);
+                            AddDependency(madOP, memOP, ISSUE_DEPENDENCY);
+                            lastIssueOP = memOP;
+                            result->value->lastOP = memOP;
                         }
                         DeleteSemanticRepresentation(left_value);
                         DeleteStmtRepresentation(index);
@@ -1267,54 +1282,83 @@ StmtRepresentation* TraceCompoundStmt(CompoundStatement* stmt)
 
 StmtRepresentation* TraceFuncNode(Program_node* prog, char* func_name, SemanticRepresentation_list* arguments)
 {
-    Function_node* func = prog->function_head;
-    while (func != NULL)
+    if (CheckPrimitiveFunc(func_name))
     {
-        if (strcmp(func_name, func->function_name) == 0)
-            break;
-
-        func = func->next;
+        return CreateStmtRepresentation(EXPRESSION_STMT, ProcessPrimitiveFunc(func_name, arguments));
     }
-
-    if (!func)
-        return NULL;
     else
     {
-        printf("Start tracing function %s\n", func_name);
-        SemanticRepresentation* iterArg;
-        StmtRepresentation* result = NULL;
-        Parameter_node* iterParam = func->parameter_head;
-
-        if (arguments == NULL)
-            iterArg = NULL;
-        else
-            iterArg = arguments->value_head;
-
-        CreateSymTableLevel(symTable);
-        while (iterParam != NULL && iterArg != NULL)
+        Function_node* func = prog->function_head;
+        while (func != NULL)
         {
-            TypeDescriptor* mix_type = MixAndCreateTypeDesc(iterParam->parameter_type, iterParam->parameter_desc->identifier_type);
-            char* name = strdup(iterParam->parameter_desc->identifier_name);
+            if (strcmp(func_name, func->function_name) == 0)
+                break;
 
-            SymbolTableEntry* entry = CreateSymTableEntry(program, name, mix_type);
-            AssignToSymTableEntry(entry, iterArg);
-            AddEntryToSymTable(symTable, entry);
-
-            iterArg = iterArg->next;
-            iterParam = iterParam->next;
+            func = func->next;
         }
 
-        result = TraceCompoundStmt(func->content_statement);
-        DeleteSymTableLevel(symTable);
-
-        if (result && ((result->kind == RETURN_STMT) || (result->kind == EMPTY_RETURN_STMT)))
-            return result;
+        if (!func)
+            return NULL;
         else
         {
-            DeleteStmtRepresentation(result);
-            return NULL;
+            printf("Start tracing function %s\n", func_name);
+            SemanticRepresentation* iterArg;
+            StmtRepresentation* result = NULL;
+            Parameter_node* iterParam = func->parameter_head;
+
+            if (arguments == NULL)
+                iterArg = NULL;
+            else
+                iterArg = arguments->value_head;
+
+            CreateSymTableLevel(symTable);
+            while (iterParam != NULL && iterArg != NULL)
+            {
+                TypeDescriptor* mix_type = MixAndCreateTypeDesc(iterParam->parameter_type, iterParam->parameter_desc->identifier_type);
+                char* name = strdup(iterParam->parameter_desc->identifier_name);
+
+                SymbolTableEntry* entry = CreateSymTableEntry(program, name, mix_type);
+                AssignToSymTableEntry(entry, iterArg);
+                AddEntryToSymTable(symTable, entry);
+
+                iterArg = iterArg->next;
+                iterParam = iterParam->next;
+            }
+
+            result = TraceCompoundStmt(func->content_statement);
+            DeleteSymTableLevel(symTable);
+
+            if (result && ((result->kind == RETURN_STMT) || (result->kind == EMPTY_RETURN_STMT)))
+                return result;
+            else
+            {
+                DeleteStmtRepresentation(result);
+                return NULL;
+            }
         }
     }
+}
+
+int CheckPrimitiveFunc(char* name)
+{
+    if (strcmp(name, "get_global_id") == 0) return 1;
+    if (strcmp(name, "get_local_id") == 0) return 1;
+    if (strcmp(name, "get_group_id") == 0) return 1;
+    if (strcmp(name, "get_num_groups") == 0) return 1;
+    if (strcmp(name, "get_work_dim") == 0) return 1;
+    if (strcmp(name, "get_global_size") == 0) return 1;
+    if (strcmp(name, "get_local_size") == 0) return 1;
+    return 0;
+}
+
+SemanticRepresentation* ProcessPrimitiveFunc(char* name, SemanticRepresentation_list* arg)
+{
+    SemanticRepresentation* ret = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
+    ret->lvalue = NULL;
+    ret->next = NULL;
+    ret->type = CreateScalarTypeDesc(INT_TYPE, NULL);
+    ret->value = CreateZeroSemanticValue(INT_TYPE);
+    return ret;
 }
 
 void GetOperationName(Operation* op, char* name)
@@ -1328,6 +1372,9 @@ void GetOperationName(Operation* op, char* name)
         {
             case NONE_TYPE:
                 strcat(name, "NONE_");
+                break;
+            case POINTER_TYPE:
+                strcat(name, "POINTER_");
                 break;
             case STRUCT_TYPE:
                 strcat(name, "STRUCT_");
@@ -1583,9 +1630,74 @@ void GetOperationName(Operation* op, char* name)
             case LOGICAL_COMPLEMENT_OP:
                 strcat(name, "LOGICAL_COMPLEMENT_OP");
                 break;
+            case MAD_OP:
+                strcat(name, "MAD_OP");
+                break;
         }
     }
 
+}
+
+void DeleteSymbolTable(SymbolTable* table)
+{
+    if (!table)
+        return;
+    else
+    {
+        SymbolTableLevel* iterLevel;
+
+        while (iterLevel)
+        {
+            iterLevel = table->level_tail;
+            DeleteSymTableLevel(table);
+        }
+        free (table);
+    }
+}
+
+void DeleteOPTrace(Operation_list* list)
+{
+    if (!list)
+        return;
+    else
+    {
+        Operation* iterOP = list->operation_head;
+        Operation* nextOP;
+
+        while (iterOP != NULL)
+        {
+            nextOP = iterOP->next;
+            DeleteOperation(iterOP);
+            iterOP = nextOP;
+        }
+        free (list);
+    }
+}
+
+void DeleteOperation(Operation* op)
+{
+    if (!op)
+        return;
+    else
+    {
+        if (op->structural_dep)
+            free (op->structural_dep);
+        if (op->issue_dep)
+            free (op->issue_dep);
+        if (op->data_dep_head)
+        {
+            Dependency* iterDep = op->data_dep_head;
+            Dependency* nextDep;
+            while (iterDep != NULL)
+            {
+                nextDep = iterDep->next;
+                free (iterDep);
+                iterDep = nextDep;
+            }
+        }
+
+        free (op);
+    }
 }
 
 void ShowOPTrace(Operation_list* list)

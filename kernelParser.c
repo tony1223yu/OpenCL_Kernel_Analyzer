@@ -870,7 +870,8 @@ int main(int argc, char *argv[])
     ShowOPTrace(opTrace);
 
     /* Delete Symbol Table */
-
+    DeleteSymbolTable(symTable);
+    DeleteOPTrace(opTrace);
     DeleteTypeNameTable(typeTable);
     DeleteProgramNode(program);
     fclose(fp);
