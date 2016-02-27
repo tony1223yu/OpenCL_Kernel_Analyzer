@@ -1705,7 +1705,7 @@ unary_expression
 
 unary_operator
 	: '&'
-	| '*'
+	| '*' {$$ = MEMORY_OP;}
 	| '+' {$$ = UNARY_PLUS_OP;}
 	| '-' {$$ = UNARY_MINUS_OP;}
     | '~' {$$ = BITWISE_COMPLEMENT_OP;}

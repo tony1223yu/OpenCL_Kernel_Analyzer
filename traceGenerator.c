@@ -1792,7 +1792,10 @@ void ShowOPTrace(Operation_list* list)
                 // Treat as unsigned value
                 unsigned long constVal;
                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, iterOP->value, &constVal);
-                printf("[Address]: 0x%08lx", constVal);
+                if (iterOP->value->kind == VALUE_IRREGULAR)
+                    printf("[Address]: IRREGULAR");
+                else
+                    printf("[Address]: 0x%08lx", constVal);
                 ShowNDRangeVector(iterOP->value->vector);
             }
             printf("\n");
@@ -2221,7 +2224,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, ADDITION_OP, ret->value);
-                    ret->value->constVal.long_val = (left_val + right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                        ret->value->constVal.long_val = (left_val + right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
@@ -2229,7 +2233,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, ADDITION_OP, ret->value);
-                    ret->value->constVal.ulong_val = (left_val + right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                        ret->value->constVal.ulong_val = (left_val + right_val);
                 }
                 else if (large_value_type == VALUE_POINTER)
                 {
@@ -2246,7 +2251,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, mul->value, &mul_val);
                         GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
                         ret->value->vector = CalculateNDRangeVector(left->value->vector, mul->value->vector, pointer_val, mul_val, ADDITION_OP, ret->value);
-                        ret->value->constVal.ulong_val = pointer_val + mul_val;
+                        if (ret->value->kind != VALUE_IRREGULAR)
+                            ret->value->constVal.ulong_val = pointer_val + mul_val;
 
                         // establish the RAW dependency of mul
                         right->value->lastOP = mul->value->lastOP;
@@ -2259,7 +2265,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, mul->value, &mul_val);
                         GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &pointer_val);
                         ret->value->vector = CalculateNDRangeVector(mul->value->vector, right->value->vector, mul_val, pointer_val, ADDITION_OP, ret->value);
-                        ret->value->constVal.ulong_val = mul_val + pointer_val;
+                        if (ret->value->kind != VALUE_IRREGULAR)
+                            ret->value->constVal.ulong_val = mul_val + pointer_val;
 
                         // establish the RAW dependency of mul
                         left->value->lastOP = mul->value->lastOP;
@@ -2276,7 +2283,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.double_val = (left_val + right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                        ret->value->constVal.double_val = (left_val + right_val);
                 }
                 currOP = CreateOperation(large_type, ADDITION_OP, NULL);
                 break;
@@ -2288,7 +2296,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, SUBTRACTION_OP, ret->value);
-                    ret->value->constVal.long_val = (left_val - right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                        ret->value->constVal.long_val = (left_val - right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
@@ -2296,7 +2305,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, SUBTRACTION_OP, ret->value);
-                    ret->value->constVal.ulong_val = (left_val - right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                        ret->value->constVal.ulong_val = (left_val - right_val);
                 }
                 else if (large_value_type == VALUE_POINTER)
                 {
@@ -2313,7 +2323,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, mul->value, &mul_val);
                         GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
                         ret->value->vector = CalculateNDRangeVector(left->value->vector, mul->value->vector, pointer_val, mul_val, ADDITION_OP, ret->value);
-                        ret->value->constVal.ulong_val = pointer_val - mul_val;
+                        if (ret->value->kind != VALUE_IRREGULAR)
+                        	ret->value->constVal.ulong_val = pointer_val - mul_val;
 
                         // establish the RAW dependency of mul
                         right->value->lastOP = mul->value->lastOP;
@@ -2326,7 +2337,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, mul->value, &mul_val);
                         GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &pointer_val);
                         ret->value->vector = CalculateNDRangeVector(mul->value->vector, right->value->vector, mul_val, pointer_val, ADDITION_OP, ret->value);
-                        ret->value->constVal.ulong_val = mul_val - pointer_val;
+                        if (ret->value->kind != VALUE_IRREGULAR)
+                        	ret->value->constVal.ulong_val = mul_val - pointer_val;
 
                         // establish the RAW dependency of mul
                         left->value->lastOP = mul->value->lastOP;
@@ -2343,7 +2355,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.double_val = (left_val - right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.double_val = (left_val - right_val);
                 }
                 currOP = CreateOperation(large_type, SUBTRACTION_OP, NULL);
                 break;
@@ -2355,7 +2368,8 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, MULTIPLICATION_OP, ret->value);
-                    ret->value->constVal.long_val = (left_val * right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val * right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
@@ -2363,14 +2377,16 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
                     ret->value->vector = CalculateNDRangeVector(left->value->vector, right->value->vector, left_val, right_val, MULTIPLICATION_OP, ret->value);
-                    ret->value->constVal.ulong_val = (left_val * right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (left_val * right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.double_val = (left_val * right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.double_val = (left_val * right_val);
                 }
                 currOP = CreateOperation(large_type, MULTIPLICATION_OP, NULL);
                 break;
@@ -2381,21 +2397,24 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val / right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val / right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.ulong_val = (left_val / right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (left_val / right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.double_val = (left_val / right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.double_val = (left_val / right_val);
                 }
                 currOP = CreateOperation(large_type, DIVISION_OP, NULL);
                 break;
@@ -2406,14 +2425,16 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val % right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val % right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.ulong_val = (left_val % right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (left_val % right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
@@ -2435,15 +2456,21 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         {
                             long left_val;
                             GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.long_val = (left_val + 1);
-                            ret->value->constVal.long_val = left_val;
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.long_val = (left_val + 1);
+                            	ret->value->constVal.long_val = left_val;
+                            }
                         }
                         else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.ulong_val = (left_val + 1);
-                            ret->value->constVal.ulong_val = left_val;
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.ulong_val = (left_val + 1);
+                            	ret->value->constVal.ulong_val = left_val;
+                            }
                         }
                         else if (large_value_type == VALUE_POINTER)
                         {
@@ -2457,8 +2484,11 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                                 typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
                                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, typeSize->value, &type_val);
                                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
-                                entry->value->constVal.ulong_val = pointer_val + type_val;
-                                ret->value->constVal.ulong_val = pointer_val;
+                                if (ret->value->kind != VALUE_IRREGULAR)
+                                {
+                                    entry->value->constVal.ulong_val = pointer_val + type_val;
+                                	ret->value->constVal.ulong_val = pointer_val;
+                                }
                             }
                             else
                                 fprintf(stderr, "[Error] No pointer type operand found in %s\n", __func__);
@@ -2470,8 +2500,11 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         {
                             double left_val;
                             GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
-                            entry->value->constVal.double_val = (left_val + 1);
-                            ret->value->constVal.double_val = left_val;
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.double_val = (left_val + 1);
+                            	ret->value->constVal.double_val = left_val;
+                            }
                         }
                         currOP = CreateOperation(large_type, ADDITION_OP, NULL);
                         entry->value->lastOP = currOP;
@@ -2492,15 +2525,21 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         {
                             long left_val;
                             GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.long_val = (left_val - 1);
-                            ret->value->constVal.long_val = left_val;
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.long_val = (left_val - 1);
+                            	ret->value->constVal.long_val = left_val;
+                            }
                         }
                         else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.ulong_val = (left_val - 1);
-                            ret->value->constVal.ulong_val = left_val;
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.ulong_val = (left_val - 1);
+                            	ret->value->constVal.ulong_val = left_val;
+                            }
                         }
                         else if (large_value_type == VALUE_POINTER)
                         {
@@ -2514,8 +2553,11 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                                 typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
                                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, typeSize->value, &type_val);
                                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
-                                entry->value->constVal.ulong_val = pointer_val - type_val;
-                                ret->value->constVal.ulong_val = pointer_val;
+                                if (ret->value->kind != VALUE_IRREGULAR)
+                                {
+                                    entry->value->constVal.ulong_val = pointer_val - type_val;
+                                	ret->value->constVal.ulong_val = pointer_val;
+                                }
                             }
                             else
                                 fprintf(stderr, "[Error] No pointer type operand found in %s\n", __func__);
@@ -2527,8 +2569,11 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         {
                             double left_val;
                             GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
-                            entry->value->constVal.double_val = (left_val - 1);
-                            ret->value->constVal.double_val = left_val;
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.double_val = (left_val - 1);
+                            	ret->value->constVal.double_val = left_val;
+                            }
                         }
                         currOP = CreateOperation(large_type, SUBTRACTION_OP, NULL);
                         entry->value->lastOP = currOP;
@@ -2549,15 +2594,21 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         {
                             long left_val;
                             GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.long_val = (left_val + 1);
-                            ret->value->constVal.long_val = (left_val + 1);
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.long_val = (left_val + 1);
+                            	ret->value->constVal.long_val = (left_val + 1);
+                            }
                         }
                         else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.ulong_val = (left_val + 1);
-                            ret->value->constVal.ulong_val = (left_val + 1);
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.ulong_val = (left_val + 1);
+                            	ret->value->constVal.ulong_val = (left_val + 1);
+                            }
                         }
                         else if (large_value_type == VALUE_POINTER)
                         {
@@ -2571,8 +2622,11 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                                 typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
                                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, typeSize->value, &type_val);
                                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
-                                entry->value->constVal.ulong_val = pointer_val + type_val;
-                                ret->value->constVal.ulong_val = pointer_val + type_val;
+                                if (ret->value->kind != VALUE_IRREGULAR)
+                                {
+                                    entry->value->constVal.ulong_val = pointer_val + type_val;
+                                	ret->value->constVal.ulong_val = pointer_val + type_val;
+                                }
                             }
                             else
                                 fprintf(stderr, "[Error] No pointer type operand found in %s\n", __func__);
@@ -2584,8 +2638,11 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         {
                             double left_val;
                             GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
-                            entry->value->constVal.double_val = (left_val + 1);
-                            ret->value->constVal.double_val = (left_val + 1);
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.double_val = (left_val + 1);
+                            	ret->value->constVal.double_val = (left_val + 1);
+                            }
                         }
                         currOP = CreateOperation(large_type, ADDITION_OP, NULL);
                         entry->value->lastOP = currOP;
@@ -2606,15 +2663,21 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         {
                             long left_val;
                             GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.long_val = (left_val - 1);
-                            ret->value->constVal.long_val = (left_val - 1);
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.long_val = (left_val - 1);
+                            	ret->value->constVal.long_val = (left_val - 1);
+                            }
                         }
                         else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                         {
                             unsigned long left_val;
                             GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                            entry->value->constVal.ulong_val = (left_val - 1);
-                            ret->value->constVal.ulong_val = (left_val - 1);
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.ulong_val = (left_val - 1);
+                            	ret->value->constVal.ulong_val = (left_val - 1);
+                            }
                         }
                         else if (large_value_type == VALUE_POINTER)
                         {
@@ -2628,8 +2691,11 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                                 typeSize = GetSemanticRepresentationFromTypeDesc(element_type);
                                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, typeSize->value, &type_val);
                                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &pointer_val);
-                                entry->value->constVal.ulong_val = pointer_val - type_val;
-                                ret->value->constVal.ulong_val = pointer_val - type_val;
+                                if (ret->value->kind != VALUE_IRREGULAR)
+                                {
+                                    entry->value->constVal.ulong_val = pointer_val - type_val;
+                                	ret->value->constVal.ulong_val = pointer_val - type_val;
+                                }
                             }
                             else
                                 fprintf(stderr, "[Error] No pointer type operand found in %s\n", __func__);
@@ -2641,8 +2707,11 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                         {
                             double left_val;
                             GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
-                            entry->value->constVal.double_val = (left_val - 1);
-                            ret->value->constVal.double_val = (left_val - 1);
+                            if (ret->value->kind != VALUE_IRREGULAR)
+                            {
+                                entry->value->constVal.double_val = (left_val - 1);
+                            	ret->value->constVal.double_val = (left_val - 1);
+                            }
                         }
                         currOP = CreateOperation(large_type, SUBTRACTION_OP, NULL);
                         entry->value->lastOP = currOP;
@@ -2656,14 +2725,16 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val << right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val << right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.ulong_val = (left_val << right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (left_val << right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
@@ -2678,14 +2749,16 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val >> right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val >> right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.ulong_val = (left_val >> right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (left_val >> right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
@@ -2700,14 +2773,16 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val & right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val & right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.ulong_val = (left_val & right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (left_val & right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
@@ -2722,14 +2797,16 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val ^ right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val ^ right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.ulong_val = (left_val ^ right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (left_val ^ right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
@@ -2744,14 +2821,16 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val | right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val | right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.ulong_val = (left_val | right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (left_val | right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
@@ -2764,13 +2843,15 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     long left_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
-                    ret->value->constVal.long_val = (~left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (~left_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                    ret->value->constVal.ulong_val = (~left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (~left_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
@@ -2783,19 +2864,22 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     long left_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
-                    ret->value->constVal.long_val = (+left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (+left_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                    ret->value->constVal.ulong_val = (+left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (+left_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
-                    ret->value->constVal.double_val = (+left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.double_val = (+left_val);
                 }
                 currOP = CreateOperation(large_type, UNARY_PLUS_OP, NULL);
                 break;
@@ -2804,19 +2888,22 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     long left_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
-                    ret->value->constVal.long_val = (-left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (-left_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                    ret->value->constVal.ulong_val = (-left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.ulong_val = (-left_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
-                    ret->value->constVal.double_val = (-left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.double_val = (-left_val);
                 }
                 currOP = CreateOperation(large_type, UNARY_MINUS_OP, NULL);
                 break;
@@ -2826,21 +2913,24 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val < right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val < right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val < right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val < right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val < right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val < right_val);
                 }
                 currOP = CreateOperation(large_type, LESS_OP, NULL);
                 break;
@@ -2850,21 +2940,24 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val <= right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val <= right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val <= right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val <= right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val <= right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val <= right_val);
                 }
                 currOP = CreateOperation(large_type, LESS_EQUAL_OP, NULL);
                 break;
@@ -2874,21 +2967,24 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val > right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val > right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val > right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val > right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val > right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val > right_val);
                 }
                 currOP = CreateOperation(large_type, GREATER_OP, NULL);
                 break;
@@ -2898,21 +2994,24 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val >= right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val >= right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val >= right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val >= right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val >= right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val >= right_val);
                 }
                 currOP = CreateOperation(large_type, GREATER_EQUAL_OP, NULL);
                 break;
@@ -2922,21 +3021,24 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val == right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val == right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val == right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val == right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val == right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val == right_val);
                 }
                 currOP = CreateOperation(large_type, EQUAL_OP, NULL);
                 break;
@@ -2946,21 +3048,24 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val != right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val != right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val != right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val != right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val != right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val != right_val);
                 }
                 currOP = CreateOperation(large_type, NOT_EQUAL_OP, NULL);
                 break;
@@ -2970,21 +3075,24 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val && right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val && right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val && right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val && right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val && right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val && right_val);
                 }
                 currOP = CreateOperation(large_type, LOGICAL_AND_OP, NULL);
                 break;
@@ -2994,21 +3102,24 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                     long left_val, right_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val || right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val || right_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val, right_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val || right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val || right_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val, right_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
                     GetValueInSemanticValue(VALUE_FLOAT, right->value, &right_val);
-                    ret->value->constVal.long_val = (left_val || right_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (left_val || right_val);
                 }
                 currOP = CreateOperation(large_type, LOGICAL_OR_OP, NULL);
                 break;
@@ -3017,19 +3128,22 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 {
                     long left_val;
                     GetValueInSemanticValue(VALUE_SIGNED_INTEGER, left->value, &left_val);
-                    ret->value->constVal.long_val = (!left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (!left_val);
                 }
                 else if (large_value_type == VALUE_UNSIGNED_INTEGER)
                 {
                     unsigned long left_val;
                     GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left->value, &left_val);
-                    ret->value->constVal.long_val = (!left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (!left_val);
                 }
                 else if (large_value_type == VALUE_FLOAT)
                 {
                     double left_val;
                     GetValueInSemanticValue(VALUE_FLOAT, left->value, &left_val);
-                    ret->value->constVal.long_val = (!left_val);
+                    if (ret->value->kind != VALUE_IRREGULAR)
+                    	ret->value->constVal.long_val = (!left_val);
                 }
                 currOP = CreateOperation(large_type, LOGICAL_COMPLEMENT_OP, NULL);
                 break;
