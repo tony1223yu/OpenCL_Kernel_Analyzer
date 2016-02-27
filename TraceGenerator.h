@@ -79,6 +79,9 @@ int CheckPrimitiveFunc(char*);
 SemanticRepresentation* ProcessPrimitiveFunc(char*, SemanticRepresentation_list*);
 SemanticRepresentation* GetSemanticRepresentationFromTypeDesc(TypeDescriptor*);
 
+unsigned long GetOperationLatency(Operation*);
+void CalculateCriticalPath(Operation_list*);
+
 enum SEMANTIC_VALUE_KIND
 {
     VALUE_IRREGULAR = 0,
@@ -175,6 +178,10 @@ struct Operation
 
     // Only for memory access index
     SemanticValue* value;
+
+    // For critical path calculation
+    unsigned long first_cycle;
+    unsigned long last_cycle;
 
     Operation* next;
 };

@@ -8,6 +8,53 @@ extern Operation* lastIssueOP;
 extern Operation_list* opTrace;
 extern Program_node* program;
 
+void CalculateCriticalPath(Operation_list* list)
+{
+    if (list == NULL)
+        return;
+
+    Operation* iterOP;
+    Operation* targetOP;
+    unsigned long tmp_cycle;
+
+    // initial
+    list->operation_head->first_cycle = 1;
+    iterOP = list->operation_head;
+    while (iterOP != NULL)
+    {
+        if (iterOP->structural_dep != NULL)
+        {
+            tmp_cycle = iterOP->first_cycle + iterOP->structural_dep->latency;
+            targetOP = iterOP->structural_dep->targetOP;
+            if (tmp_cycle > targetOP->first_cycle)
+                targetOP->first_cycle = tmp_cycle;
+        }
+        if (iterOP->issue_dep != NULL)
+        {
+            tmp_cycle = iterOP->first_cycle + iterOP->issue_dep->latency;
+            targetOP = iterOP->issue_dep->targetOP;
+            if (tmp_cycle > targetOP->first_cycle)
+                targetOP->first_cycle = tmp_cycle;
+        }
+        if (iterOP->data_dep_head != NULL)
+        {
+            Dependency* iter_dep = iterOP->data_dep_head;
+            while (iter_dep != NULL)
+            {
+                tmp_cycle = iterOP->first_cycle + iter_dep->latency;
+                targetOP = iter_dep->targetOP;
+                if (tmp_cycle > targetOP->first_cycle)
+                    targetOP->first_cycle = tmp_cycle;
+
+                iter_dep = iter_dep->next;
+            }
+        }
+
+        iterOP = iterOP->next;
+    }
+    printf("total cycle = %lu\n", list->operation_tail->first_cycle);
+}
+
 SymbolTable* CreateSymTable()
 {
     SymbolTable* ret = (SymbolTable*) malloc(sizeof(SymbolTable));
@@ -228,6 +275,8 @@ Operation* CreateOperation(TypeDescriptor* type, EXPRESSION_KIND kind, SemanticV
         ret->structural_dep = NULL;
         ret->data_dep_head = NULL;
         ret->data_dep_tail = NULL;
+
+        ret->first_cycle = 0;
         return ret;
     }
 }
@@ -470,6 +519,11 @@ Dependency* CreateDependency(Operation* target, unsigned long latency)
     return ret;
 }
 
+unsigned long GetOperationLatency(Operation* op)
+{
+    return ((unsigned long)(rand())) % 200;
+}
+
 // TODO dependency latency
 void AddDependency(Operation* source, Operation* destination, DEPENDENCY_KIND kind)
 {
@@ -487,7 +541,7 @@ void AddDependency(Operation* source, Operation* destination, DEPENDENCY_KIND ki
         }
         else if (kind == DATA_DEPENDENCY)
         {
-            Dependency* new_dep = CreateDependency(destination, 1);
+            Dependency* new_dep = CreateDependency(destination, GetOperationLatency(source));
             if (source->data_dep_head == NULL)
             {
                 source->data_dep_head = new_dep;
@@ -1738,7 +1792,7 @@ void ShowOPTrace(Operation_list* list)
                 // Treat as unsigned value
                 unsigned long constVal;
                 GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, iterOP->value, &constVal);
-                printf("[Address]: %lu", constVal);
+                printf("[Address]: 0x%08lx", constVal);
                 ShowNDRangeVector(iterOP->value->vector);
             }
             printf("\n");
@@ -1753,15 +1807,15 @@ void ShowNDRangeVector(NDRangeVector vector)
         return;
     else
     {
-        if (vector.globalIdx[0] != 0) printf(" + %ld x globalID(0)", vector.globalIdx[0]);
-        if (vector.globalIdx[1] != 0) printf(" + %ld x globalID(1)", vector.globalIdx[1]);
-        if (vector.globalIdx[2] != 0) printf(" + %ld x globalID(2)", vector.globalIdx[2]);
-        if (vector.localIdx[0] != 0) printf(" + %ld x localID(0)", vector.localIdx[0]);
-        if (vector.localIdx[1] != 0) printf(" + %ld x localID(1)", vector.localIdx[1]);
-        if (vector.localIdx[2] != 0) printf(" + %ld x localID(2)", vector.localIdx[2]);
-        if (vector.groupIdx[0] != 0) printf(" + %ld x groupID(0)", vector.groupIdx[0]);
-        if (vector.groupIdx[1] != 0) printf(" + %ld x groupID(1)", vector.groupIdx[1]);
-        if (vector.groupIdx[2] != 0) printf(" + %ld x groupID(2)", vector.groupIdx[2]);
+        if (vector.globalIdx[0] != 0) printf(" + 0x%08lx x globalID(0)", vector.globalIdx[0]);
+        if (vector.globalIdx[1] != 0) printf(" + 0x%08lx x globalID(1)", vector.globalIdx[1]);
+        if (vector.globalIdx[2] != 0) printf(" + 0x%08lx x globalID(2)", vector.globalIdx[2]);
+        if (vector.localIdx[0] != 0) printf(" + 0x%08lx x localID(0)", vector.localIdx[0]);
+        if (vector.localIdx[1] != 0) printf(" + 0x%08lx x localID(1)", vector.localIdx[1]);
+        if (vector.localIdx[2] != 0) printf(" + 0x%08lx x localID(2)", vector.localIdx[2]);
+        if (vector.groupIdx[0] != 0) printf(" + 0x%08lx x groupID(0)", vector.groupIdx[0]);
+        if (vector.groupIdx[1] != 0) printf(" + 0x%08lx x groupID(1)", vector.groupIdx[1]);
+        if (vector.groupIdx[2] != 0) printf(" + 0x%08lx x groupID(2)", vector.groupIdx[2]);
     }
 }
 

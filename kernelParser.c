@@ -872,6 +872,7 @@ int main(int argc, char *argv[])
     result = TraceFuncNode(program, funcName, NULL);
     DeleteStmtRepresentation(result);
     ShowOPTrace(opTrace);
+    CalculateCriticalPath(opTrace);
 
     /* Delete Symbol Table */
     DeleteSymbolTable(symTable);
