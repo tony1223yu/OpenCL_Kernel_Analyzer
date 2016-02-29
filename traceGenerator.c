@@ -839,11 +839,10 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
         return NULL;
     else
     {
-        SemanticRepresentation* left_value = TraceExprNode(node->left_operand);
-        SemanticRepresentation* right_value = TraceExprNode(node->right_operand);
-
         if (node->expression_kind & EXPRESSION_MASK)
         {
+            SemanticRepresentation* left_value = TraceExprNode(node->left_operand);
+            SemanticRepresentation* right_value = TraceExprNode(node->right_operand);
             SemanticRepresentation* result = NULL;
             switch (node->expression_kind)
             {
@@ -954,6 +953,8 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
         }
         else if (node->expression_kind & ASSIGNMENT_MASK)
         {
+            SemanticRepresentation* left_value = TraceExprNode(node->left_operand);
+            SemanticRepresentation* right_value = TraceExprNode(node->right_operand);
             SemanticRepresentation* result = CalculateSemanticRepresentation(node->expression_kind, left_value, right_value);
 
             if (left_value->lvalue == NULL)
@@ -994,11 +995,57 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
         }
         else // OP_MASK
         {
-            SemanticRepresentation* result = CalculateSemanticRepresentation(node->expression_kind, left_value, right_value);
+            SemanticRepresentation* left_value;
+            SemanticRepresentation* right_value;
+            SemanticRepresentation* result;
 
+            if (node->expression_kind == LOGICAL_AND_OP)
+            {
+                unsigned long val;
+                left_value = TraceExprNode(node->left_operand);
+                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left_value->value, &val);
+                if (val == 0) // No need to trace node->right_operand
+                {
+                    right_value = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
+                    right_value->type = DuplicateTypeDesc(left_value->type);
+                    right_value->value = DuplicateSemanticValue(left_value->value);
+                    right_value->lvalue = NULL;
+                    right_value->next = NULL;
+                }
+                else
+                {
+                    right_value = TraceExprNode(node->right_operand);
+                }
+            }
+            else if (node->expression_kind == LOGICAL_OR_OP)
+            {
+                unsigned long val;
+                left_value = TraceExprNode(node->left_operand);
+                GetValueInSemanticValue(VALUE_UNSIGNED_INTEGER, left_value->value, &val);
+                if (val != 0) // No need to trace node->right_operand
+                {
+                    right_value = (SemanticRepresentation*) malloc(sizeof(SemanticRepresentation));
+                    right_value->type = DuplicateTypeDesc(left_value->type);
+                    right_value->value = DuplicateSemanticValue(left_value->value);
+                    right_value->lvalue = NULL;
+                    right_value->next = NULL;
+                }
+                else
+                {
+                    right_value = TraceExprNode(node->right_operand);
+                }
+            }
+            else
+            {
+                left_value = TraceExprNode(node->left_operand);
+                right_value = TraceExprNode(node->right_operand);
+            }
+
+            result = CalculateSemanticRepresentation(node->expression_kind, left_value, right_value);
             DeleteSemanticRepresentation(left_value);
             DeleteSemanticRepresentation(right_value);
             return result;
+
         }
     }
 }
@@ -3069,7 +3116,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 }
                 currOP = CreateOperation(large_type, NOT_EQUAL_OP, NULL);
                 break;
-            case LOGICAL_AND_OP: // TODO lazy evaluation
+            case LOGICAL_AND_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
@@ -3096,7 +3143,7 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
                 }
                 currOP = CreateOperation(large_type, LOGICAL_AND_OP, NULL);
                 break;
-            case LOGICAL_OR_OP: // TODO lazy evaluation
+            case LOGICAL_OR_OP:
                 if (large_value_type == VALUE_SIGNED_INTEGER)
                 {
                     long left_val, right_val;
