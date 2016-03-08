@@ -494,6 +494,7 @@ Parameter_node* CreateParamNode(TypeDescriptor* type, Declaration_desc_node* des
 TypeDescriptor* CreateScalarTypeDesc(OPENCL_DATA_TYPE type, char* struct_name)
 {
     TypeDescriptor* ret = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
+    ret->space = OPENCL_ADDRESS_PRIVATE;
     ret->type = type;
     ret->struct_name = struct_name;
     ret->array_desc_head = NULL;
@@ -526,7 +527,12 @@ TypeDescriptor* MixAndCreateTypeDesc(TypeDescriptor* left, TypeDescriptor* right
         Parameter_node* iterParam;
 
         ret = (TypeDescriptor*) malloc(sizeof(TypeDescriptor));
+
+        /* Use left TypeDescriptor */
+        ret->space = left->space;
         ret->type = left->type;
+
+        /* Merge with right TypeDescriptor */
         ret->array_desc_head = NULL;
         ret->array_desc_tail = NULL;
         ret->parameter_head = NULL;
@@ -940,6 +946,7 @@ TypeDescriptor* DuplicateTypeDesc(TypeDescriptor* type)
     else
     {
         TypeDescriptor* ret = CreateScalarTypeDesc(type->type, NULL);
+        ret->space = type->space;
         ret->kind = type->kind;
 
         if (type->struct_name != NULL)
@@ -1569,6 +1576,7 @@ void DeleteTypeNameNode(TypeName_node* node)
 
 %union
 {
+    OPENCL_ADDRESS_SPACE opencl_space;
     OPENCL_DATA_TYPE opencl_type;
     TypeDescriptor* type_desc_node;
     ArrayDesc_node_list* array_desc_node_list;
@@ -1609,6 +1617,7 @@ void DeleteTypeNameNode(TypeName_node* node)
 %token CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 
 %type <expr_node> primary_expression postfix_expression unary_expression cast_expression multiplicative_expression additive_expression shift_expression relational_expression equality_expression and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression conditional_expression assignment_expression initializer
+%type <opencl_space> address_qualifier
 %type <opencl_type> struct_or_union
 %type <expr_stmt> expression expression_statement
 %type <expr_node_list> argument_expression_list
@@ -1906,7 +1915,16 @@ declaration_specifiers
 	| function_specifier {$$ = NULL;}
 	| function_specifier declaration_specifiers {$$ = $2;}
     | address_qualifier {$$ = NULL;}
-    | address_qualifier declaration_specifiers {$$ = $2;}
+    | address_qualifier declaration_specifiers
+    {
+        if ($2 == NULL)
+            $$ = NULL;
+        else
+        {
+            $$ = $2;
+            $$->space = $1;
+        }
+    }
 	;
 
 init_declarator_list
@@ -2011,6 +2029,17 @@ specifier_qualifier_list
 	| type_specifier {$$ = $1;}
     | type_qualifier specifier_qualifier_list {$$ = $2;}
 	| type_qualifier {$$ = NULL;}
+    | address_qualifier {$$ = NULL;}
+    | address_qualifier specifier_qualifier_list
+    {
+        if ($2 == NULL)
+            $$ = NULL;
+        else
+        {
+            $$ = $2;
+            $$->space = $1;
+        }
+    }
 	;
 
 struct_declarator_list
@@ -2049,10 +2078,10 @@ type_qualifier
 	;
 
 address_qualifier
-    : ADDRESS_GLOBAL
-    | ADDRESS_LOCAL
-    | ADDRESS_CONSTANT
-    | ADDRESS_PRIVATE
+    : ADDRESS_GLOBAL {$$ = OPENCL_ADDRESS_GLOBAL;}
+    | ADDRESS_LOCAL {$$ = OPENCL_ADDRESS_LOCAL;}
+    | ADDRESS_CONSTANT {$$ = OPENCL_ADDRESS_CONSTANT;}
+    | ADDRESS_PRIVATE {$$ = OPENCL_ADDRESS_PRIVATE;}
     ;
 
 function_specifier

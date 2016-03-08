@@ -29,6 +29,7 @@ typedef struct Declaration_node_list Declaration_node_list;
 typedef struct TypeName_node TypeName_node;
 typedef struct TypeNameTable TypeNameTable;
 
+typedef enum OPENCL_ADDRESS_SPACE OPENCL_ADDRESS_SPACE;
 typedef enum OPENCL_DATA_TYPE OPENCL_DATA_TYPE;
 typedef enum EXPRESSION_KIND EXPRESSION_KIND;
 typedef enum STATEMENT_KIND STATEMENT_KIND;
@@ -125,6 +126,14 @@ void DebugConstantNode(Constant_node*, int);
 void DebugFuncInvocationNode(FunctionInvocation_node*, int);
 void DebugStructDeclNode(StructDeclaration_node*);
 
+enum OPENCL_ADDRESS_SPACE
+{
+    OPENCL_ADDRESS_GLOBAL = 0,
+    OPENCL_ADDRESS_LOCAL,
+    OPENCL_ADDRESS_CONSTANT,
+    OPENCL_ADDRESS_PRIVATE,
+};
+
 enum OPENCL_DATA_TYPE
 {
     CONST_TYPE_SIZE_MASK = 0xFFF,
@@ -194,10 +203,15 @@ enum OPENCL_DATA_TYPE
 
 enum EXPRESSION_KIND
 {
-    MEMORY_OP = 0x0000,
-    SUBSCRIPT_OP,
+    SUBSCRIPT_OP = 0x0000,
 
-    ARITHMETIC_OP_MASK = 0x1000,
+    MEMORY_OP = 0x1000,
+    GLOBAL_MEMORY_OP,
+    LOCAL_MEMORY_OP,
+    CONSTANT_MEMORY_OP,
+    PRIVATE_MEMORY_OP,
+
+    ARITHMETIC_OP_MASK = 0x2000,
     NONE_OP,
     ADDITION_OP,
     SUBTRACTION_OP,
@@ -218,7 +232,7 @@ enum EXPRESSION_KIND
     UNARY_MINUS_OP,
     MAD_OP,
 
-    LOGICAL_OP_MASK = 0x2000,
+    LOGICAL_OP_MASK = 0x4000,
     LESS_OP,
     LESS_EQUAL_OP,
     GREATER_OP,
@@ -229,7 +243,7 @@ enum EXPRESSION_KIND
     LOGICAL_OR_OP,
     LOGICAL_COMPLEMENT_OP,
 
-    EXPRESSION_MASK = 0x4000,
+    EXPRESSION_MASK = 0x8000,
     EXPRESSION_IDENTIFIER,
     EXPRESSION_CONSTANT,
     EXPRESSION_FUNCTION,
@@ -237,7 +251,7 @@ enum EXPRESSION_KIND
     EXPRESSION_TYPECAST,
     EXPRESSION_EXPRSTMT,
 
-    ASSIGNMENT_MASK = 0x8000,
+    ASSIGNMENT_MASK = 0x10000,
     ASSIGNMENT_NONE,
     ASSIGNMENT_ADD,
     ASSIGNMENT_SUB,
@@ -331,6 +345,7 @@ struct StructDeclaration_node
 struct TypeDescriptor
 {
     OPENCL_DATA_TYPE type;
+    OPENCL_ADDRESS_SPACE space;
     char* struct_name;
 
     // for both pointer and array

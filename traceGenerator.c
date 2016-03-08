@@ -953,13 +953,10 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
         }
         else if (node->expression_kind & ASSIGNMENT_MASK)
         {
-            SemanticRepresentation* left_value = TraceExprNode(node->left_operand);
             SemanticRepresentation* right_value = TraceExprNode(node->right_operand);
+            SemanticRepresentation* left_value = TraceExprNode(node->left_operand);
             SemanticRepresentation* result = CalculateSemanticRepresentation(node->expression_kind, left_value, right_value);
 
-            if (left_value->lvalue == NULL)
-                fprintf(stderr, "[Error] Assignment to non lvalue in %s\n", __func__);
-            else
             {
                 if (result->value->type == VALUE_SIGNED_INTEGER)
                 {
@@ -985,7 +982,14 @@ SemanticRepresentation* TraceExprNode(Expression_node* node)
                     ShowNDRangeVector(result->value->vector);
                     printf("\n");
                 }
-                AssignToSymTableEntry(left_value->lvalue, result);
+
+                if (left_value->lvalue != NULL)
+                    AssignToSymTableEntry(left_value->lvalue, result);
+
+                if (left_value->value->lastOP && (left_value->value->lastOP->kind && MEMORY_OP))
+                {
+                    AddDependency(result->value->lastOP, left_value->value->lastOP, DATA_DEPENDENCY);
+                }
             }
 
             DeleteSemanticRepresentation(left_value);
@@ -1653,8 +1657,17 @@ void GetOperationName(Operation* op, char* name)
             case NONE_OP:
                 strcat(name, "NONE_OP");
                 break;
-            case MEMORY_OP:
-                strcat(name, "MEMORY_OP");
+            case GLOBAL_MEMORY_OP:
+                strcat(name, "GLOBAL_MEMORY_OP");
+                break;
+            case LOCAL_MEMORY_OP:
+                strcat(name, "LOCAL_MEMORY_OP");
+                break;
+            case CONSTANT_MEMORY_OP:
+                strcat(name, "CONSTANT_MEMORY_OP");
+                break;
+            case PRIVATE_MEMORY_OP:
+                strcat(name, "PRIVATE_MEMORY_OP");
                 break;
             case ADDITION_OP:
                 strcat(name, "ADDITION_OP");
@@ -2248,7 +2261,16 @@ SemanticRepresentation* CalculateSemanticRepresentation(EXPRESSION_KIND kind, Se
         {
             case MEMORY_OP:
                 ret->value->kind = VALUE_IRREGULAR;
-                currOP = CreateOperation(ret->type, MEMORY_OP, DuplicateSemanticValue(left->value));
+                if (ret->type == NULL)
+                    fprintf(stderr, "[Error] Given TypeDescriptor is NULL\n");
+                else if (ret->type->space == OPENCL_ADDRESS_GLOBAL)
+                    currOP = CreateOperation(ret->type, GLOBAL_MEMORY_OP, DuplicateSemanticValue(left->value));
+                else if (ret->type->space == OPENCL_ADDRESS_LOCAL)
+                    currOP = CreateOperation(ret->type, LOCAL_MEMORY_OP, DuplicateSemanticValue(left->value));
+                else if (ret->type->space == OPENCL_ADDRESS_CONSTANT)
+                    currOP = CreateOperation(ret->type, CONSTANT_MEMORY_OP, DuplicateSemanticValue(left->value));
+                else if (ret->type->space == OPENCL_ADDRESS_PRIVATE)
+                    currOP = CreateOperation(ret->type, PRIVATE_MEMORY_OP, DuplicateSemanticValue(left->value));
                 break;
             case SUBSCRIPT_OP: // calculate ACTUAL address and use MEMORY_OP
                 {

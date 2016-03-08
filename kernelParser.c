@@ -573,6 +573,13 @@ void DebugTypeDesc(TypeDescriptor* type, char* name)
         ArrayDesc_node* iterArray = type->array_desc_head;
         strcpy(name, "");
 
+        if (type->space == OPENCL_ADDRESS_GLOBAL)
+            strcat(name, "<GLOBAL> ");
+        else if (type->space == OPENCL_ADDRESS_LOCAL)
+            strcat(name, "<LOCAL> ");
+        else if (type->space == OPENCL_ADDRESS_CONSTANT)
+            strcat(name, "<CONSTANT> ");
+
         while (iterArray != NULL)
         {
             if (iterArray->desc_kind == ARRAY_DESC_POINTER)
